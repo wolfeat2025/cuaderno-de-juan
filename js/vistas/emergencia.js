@@ -1,5 +1,5 @@
 // EMERGENCIA: llamar al 131, cómo llegar, datos para la ambulancia y contactos.
-import { estado } from '../nucleo.js';
+import { estado, esAdmin } from '../nucleo.js';
 import { esc, ico } from '../util.js';
 
 const lineas = (t) => String(t || '').split('\n').map((x) => x.trim()).filter(Boolean);
@@ -17,7 +17,7 @@ export function render() {
 
     <div class="panel">
       <p class="rotulo">${ico('pin')}Cómo llegar</p>
-      ${e.direccion ? `<p class="dato-g">${esc(e.direccion)}</p>` : `<p class="falta-dato">Falta la dirección. <a href="#ajustes/emergencia">Agregarla</a></p>`}
+      ${e.direccion ? `<p class="dato-g">${esc(e.direccion)}</p>` : `<p class="falta-dato">Falta la dirección. ${esAdmin() ? '<a href="#ajustes/emergencia">Agregarla</a>' : 'La agrega Fabián.'}</p>`}
       ${e.referencias ? `<p class="dato">${esc(e.referencias)}</p>` : ''}
     </div>
 
@@ -25,7 +25,7 @@ export function render() {
       <p class="rotulo">${ico('user')}Datos de ${esc(e.nombre)}</p>
       <ul class="hechos">
         <li>${ico('info')}<span><b>${nombreEdad(e)}</b></span></li>
-        ${lineas(e.condiciones).length ? '' : `<li>${ico('heart')}<span>Antecedentes: sin anotar. <a class="enlace" href="#ajustes/emergencia">Agregarlos</a></span></li>`}
+        ${lineas(e.condiciones).length ? '' : `<li>${ico('heart')}<span>Antecedentes: sin anotar. ${esAdmin() ? '<a class="enlace" href="#ajustes/emergencia">Agregarlos</a>' : 'Los agrega Fabián.'}</span></li>`}
         ${lineas(e.condiciones).map((l) => `<li>${ico('heart')}<span>${esc(l)}</span></li>`).join('')}
         <li>${ico('pill')}<span><b>Remedios:</b> ${meds.length ? meds.map((r) => esc(r.nombre + (r.dosis ? ' ' + r.dosis : ''))).join(', ') : 'sin anotar'}</span></li>
         <li>${ico('alert')}<span><b>Alergias:</b> ${e.alergias ? esc(e.alergias) : 'sin anotar'}</span></li>
@@ -37,7 +37,7 @@ export function render() {
       <p class="rotulo con-relleno">${ico('family')}Familia</p>
       ${contactos.map((x) => `<div class="contacto"><p class="n">${esc(x.nombre)}</p>${telLimpio(x.telefono)
         ? `<a class="btn sec auto" href="tel:${telLimpio(x.telefono)}">${ico('phone')}Llamar</a>`
-        : `<a class="mini-btn" href="#ajustes/emergencia">Falta el teléfono</a>`}</div>`).join('')}
+        : (esAdmin() ? `<a class="mini-btn" href="#ajustes/emergencia">Falta el teléfono</a>` : `<span class="mini-btn">Falta el teléfono</span>`)}</div>`).join('')}
     </div>
 
     <div class="panel">

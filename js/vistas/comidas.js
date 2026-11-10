@@ -7,9 +7,8 @@ import { COMIDAS, GUIA } from '../datos.js';
 export function render() {
   const c = estado.config, hoy = estado.ahora;
   const menu = (c.menu || {})[DIAS_K[hoy.getDay()]] || {};
-  const filas = COMIDAS.map(([k, nombre, icono]) => `<div class="fila comida"><div class="hora">${c.horasComida[k] || ''}</div>
-      <div class="riel"><span class="cap">${ico(icono)}</span></div>
-      <div class="cuerpo"><p class="tit">${nombre}</p><p class="sub grande">${menu[k] ? esc(menu[k]) : 'Sin anotar'}</p></div></div>`).join('');
+  const filas = COMIDAS.map(([k, nombre, icono]) => `<div class="comida-fila"><span class="ic comida">${ico(icono)}</span>
+      <div class="txt"><p class="tit">${nombre}</p><p class="sub grande">${menu[k] ? esc(menu[k]) : 'Sin anotar'}</p></div><span class="cuando">${c.horasComida[k] || ''}</span></div>`).join('');
   const col = (titulo, cls, icono, lista) => `<div class="col"><h3 class="${cls}">${icono ? ico(icono) : ''}${titulo}</h3><ul>${lista.map((x) => `<li>${x}</li>`).join('')}</ul></div>`;
   const compras = estado.compras.slice().sort((a, b) => (a.comprado === b.comprado ? a.ts - b.ts : a.comprado ? 1 : -1));
   const items = compras.map((i) => `<div class="item${i.comprado ? ' listo' : ''}" data-k="${i.id}" data-a="marcarCompra" data-id="${i.id}" role="button" tabindex="0">
@@ -19,7 +18,7 @@ export function render() {
   return `<div class="envoltura">
     <div class="titulo-fila"><p class="h2">Menú de hoy</p><span class="chip neutro">${mayus(DIAS[hoy.getDay()])}</span></div>
     ${c.menuEsEjemplo ? `<p class="nota aviso-ej">${ico('info')}Menú de ejemplo: ajustar con la nutricionista.</p>` : ''}
-    <div class="linea">${filas}</div>
+    <div class="menu-hoy">${filas}</div>
 
     <div class="panel plato">
       <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">

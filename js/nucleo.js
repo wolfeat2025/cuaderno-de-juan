@@ -46,3 +46,17 @@ export function aviso(texto, deshacer) {
 }
 export function cerrarAviso() { clearInterval(reloj); alDeshacer = null; porId('aviso').classList.remove('on'); }
 export function ejecutarDeshacer() { const f = alDeshacer; cerrarAviso(); if (f) f(); }
+
+// Solo Fabián ve las opciones de administración. Es para simplificar la app a los demás, no una barrera de seguridad.
+export const ADMIN = 'Fabián';
+export const esAdmin = () => estado.quien === ADMIN;
+
+// ---- Apariencia: Automático (sigue al iPhone), Claro u Oscuro. Se recuerda en cada teléfono. ----
+export const temaElegido = () => { const t = leerLocal('cj_tema'); return t === 'claro' || t === 'oscuro' ? t : 'auto'; };
+export function aplicarTema() {
+  const t = temaElegido(), raiz = document.documentElement;
+  if (t === 'auto') raiz.removeAttribute('data-tema'); else raiz.setAttribute('data-tema', t);
+  const fondo = getComputedStyle(raiz).getPropertyValue('--bg').trim();
+  const metas = document.querySelectorAll('meta[name="theme-color"]');
+  for (let i = 0; i < metas.length; i++) { metas[i].removeAttribute('media'); if (fondo) metas[i].setAttribute('content', fondo); }
+}

@@ -1,5 +1,5 @@
 // AJUSTES (pensado para Fabián): remedios, rangos, emergencia, menú, invitar, alarmas y respaldo.
-import { estado, acciones, pintar, ir, aviso, guardarLocal, leerLocal } from '../nucleo.js';
+import { estado, acciones, pintar, ir, aviso, guardarLocal, leerLocal, esAdmin, temaElegido, aplicarTema } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, porId, idAzar, copiar, compartir, DIAS_K, DIAS_C, claveFecha } from '../util.js';
 import { PERSONAS, COMIDAS } from '../datos.js';
@@ -15,18 +15,25 @@ function menu() {
   const op = (ruta, icono, t, s) => `<a class="opcion-aj" href="#ajustes/${ruta}"><span class="cap redonda">${ico(icono)}</span><span class="info"><span class="tit">${t}</span><span class="sub">${s}</span></span>${ico('right')}</a>`;
   const n = estado.config.remedios.filter((r) => r.activo !== false).length;
   const resp = leerLocal('cj_respaldo');
+  const TEMAS = { auto: 'Automático', claro: 'Claro', oscuro: 'Oscuro' };
+  const personales = `${op('apariencia', 'sun', 'Apariencia', TEMAS[temaElegido()])}
+      ${op('alarmas', 'bell', 'Alarmas de los remedios', 'Cómo ponerlas en el iPhone')}
+      ${op('quien', 'user', 'Quién usa este celular', esc(estado.quien))}`;
+  if (!esAdmin()) return `<div class="envoltura">${volver('agenda', 'Volver a Agenda')}<div class="lista-aj">${personales}</div>
+    <p class="nota">Los remedios, los rangos y los datos de emergencia los administra Fabián.</p></div>`;
   return `<div class="envoltura">
     ${volver('agenda', 'Volver a Agenda')}
+    <p class="rotulo">Administración</p>
     <div class="lista-aj">
       ${op('remedios', 'pill', 'Remedios', n ? `${n} ${n === 1 ? 'activo' : 'activos'}` : 'Aún no hay remedios')}
       ${op('rangos', 'gauge', 'Rangos y horas de medir', estado.config.rangos.provisorio ? 'Provisorios: falta poner los del médico' : 'Con los del médico')}
       ${op('emergencia', 'phone', 'Datos de emergencia', estado.config.emergencia.direccion ? 'Dirección y contactos' : 'Falta la dirección')}
       ${op('menu', 'food', 'Menú semanal', estado.config.menuEsEjemplo ? 'Es el de ejemplo' : 'Ajustado')}
       ${op('invitar', 'family', 'Invitar a la familia', 'Link para WhatsApp')}
-      ${op('alarmas', 'bell', 'Alarmas de los remedios', 'Cómo ponerlas en el iPhone')}
       ${op('respaldo', 'download', 'Respaldo', resp ? `Último: ${new Date(resp).toLocaleDateString('es-CL')}` : 'Aún no se hace ninguno')}
-      ${op('quien', 'user', 'Quién usa este celular', esc(estado.quien))}
     </div>
+    <p class="rotulo">Este celular</p>
+    <div class="lista-aj">${personales}</div>
   </div>`;
 }
 
@@ -253,8 +260,21 @@ function quien() {
     ${PERSONAS.map((p) => `<button class="btn ${p === estado.quien ? 'pri' : 'sec'} izq" data-a="elegirQuien" data-v="${p}" data-volver="ajustes">${ico('user')}${p}</button>`).join('')}</div>`;
 }
 
+// ---------- Apariencia ----------
+function apariencia() {
+  const t = temaElegido();
+  const op = (v, icono, nombre, detalle) => `<button class="btn ${t === v ? 'pri' : 'sec'} izq" data-a="elegirTema" data-v="${v}">${ico(icono)}<span>${nombre}<br><span class="sub-btn">${detalle}</span></span></button>`;
+  return `<div class="envoltura">${volver('ajustes', 'Volver a Ajustes')}
+    <p class="sub grande">Elige cómo se ve la app en este celular.</p>
+    ${op('auto', 'clock', 'Automático', 'Igual que el iPhone')}${op('claro', 'sun', 'Claro', 'Fondo claro siempre')}${op('oscuro', 'moon', 'Oscuro', 'Fondo oscuro siempre')}</div>`;
+}
+acciones.elegirTema = (d) => { guardarLocal('cj_tema', d.v); aplicarTema(); pintar(); };
+
+const SOLO_ADMIN = ['remedios', 'remedio', 'rangos', 'emergencia', 'menu', 'invitar', 'respaldo'];
 export function render(args) {
+  if (!esAdmin() && SOLO_ADMIN.indexOf(args[0]) >= 0) return menu();
   switch (args[0]) {
+    case 'apariencia': return apariencia();
     case 'remedios': return listaRemedios();
     case 'remedio': return editorRemedio(args[1]);
     case 'rangos': return editorRangos();
@@ -267,5 +287,5 @@ export function render(args) {
     default: return menu();
   }
 }
-const TITULOS = { remedios: 'Remedios', remedio: 'Remedio', rangos: 'Rangos', emergencia: 'Datos', menu: 'Menú', invitar: 'Invitar', alarmas: 'Alarmas', respaldo: 'Respaldo', quien: 'Quién eres' };
-export const titulo = (args) => TITULOS[args[0]] || 'Ajustes';
+const TITULOS = { remedios: 'Remedios', remedio: 'Remedio', rangos: 'Rangos', emergencia: 'Datos', menu: 'Menú', invitar: 'Invitar', alarmas: 'Alarmas', respaldo: 'Respaldo', quien: 'Quién eres', apariencia: 'Apariencia' };
+export const titulo = (args) => (!esAdmin() && SOLO_ADMIN.indexOf(args[0]) >= 0 ? 'Ajustes' : TITULOS[args[0]] || 'Ajustes');

@@ -1,5 +1,5 @@
-// HOY: el día de Juan como línea de tiempo (remedios, mediciones y comidas en orden).
-import { estado, acciones, pintar, aviso, guardarLocal, leerLocal } from '../nucleo.js';
+// HOY: el día de Juan como línea de tiempo compacta (hora, tarea y botón).
+import { estado, acciones, pintar, aviso, guardarLocal, leerLocal, esAdmin } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, claveFecha, deClave, sumarDias, hhmm, fechaLarga, DIAS, DIAS_K, mayus } from '../util.js';
 import { COMIDAS, TIPOS, ORDEN_TIPOS, ETIQUETA, clasificar, valorTexto } from '../datos.js';
@@ -42,35 +42,27 @@ function medicionesDeTurno(fecha, i) {
   });
 }
 
+const fila = (cls, k, hora, tarjeta) => `<div class="fila ${cls}" data-k="${k}"><div class="hora">${hora}</div><div class="riel"><span class="nodo"></span></div>${tarjeta}</div>`;
+
 function filaMed(it, modo, ahoraHM, fecha, anotable) {
   const t = estado.tomas[it.id], r = it.r;
   const detalle = [r.dosis, r.paraQue].filter(Boolean).map(esc).join(' · ');
   if (t) {
     const abierta = estado.ui.tomaAbierta === it.id;
-    return `<div class="fila med hecho" data-k="${it.id}">
-      <div class="hora">${it.hora}</div><div class="riel"><span class="cap">${ico('check')}</span></div>
-      <div class="cuerpo">
-        <div class="toca-area" data-a="abrirToma" data-id="${it.id}" role="button" tabindex="0">
-          <p class="tit">${esc(r.nombre)}</p>
-          <p class="firma">Lo dio ${esc(t.quien)} a las ${hhmm(new Date(t.ts))}</p>
-        </div>
-        ${abierta ? `<button class="btn quieto" data-a="quitarToma" data-id="${it.id}">${ico('undo')}Quitar la marca</button>` : ''}
-      </div></div>`;
+    return fila('med hecho', it.id, it.hora, `<div class="tarjeta-fila toca-area" data-a="abrirToma" data-id="${it.id}" role="button" tabindex="0">
+      <span class="ic hecho">${ico('check')}</span>
+      <div class="txt"><p class="tit">${esc(r.nombre)}</p><p class="firma">Lo dio ${esc(t.quien)} a las ${hhmm(new Date(t.ts))}</p></div>
+      ${abierta ? `<button class="btn quieto" data-a="quitarToma" data-id="${it.id}">${ico('undo')}Quitar la marca</button>` : ''}</div>`);
   }
   const boton = (cls) => `<button class="btn ${cls}" data-a="tomar" data-id="${it.id}" data-rid="${esc(r.id)}" data-hora="${it.hora}" data-fecha="${fecha}">${ico('check')}Ya lo tomó</button>`;
   if (modo === 'pasado') {
-    return `<div class="fila med" data-k="${it.id}"><div class="hora">${it.hora}</div><div class="riel"><span class="cap vacia">${ico('pill')}</span></div>
-      <div class="cuerpo"><p class="tit">${esc(r.nombre)}</p>${detalle ? `<p class="sub">${detalle}</p>` : ''}<p class="firma falta">No quedó anotado</p>${anotable ? boton('sec') : ''}</div></div>`;
+    return fila('med', it.id, it.hora, `<div class="tarjeta-fila"><span class="ic vacio">${ico('pill')}</span>
+      <div class="txt"><p class="tit">${esc(r.nombre)}</p>${detalle ? `<p class="sub">${detalle}</p>` : ''}<p class="firma falta">No quedó anotado</p></div>${anotable ? boton('sec') : ''}</div>`);
   }
   const toca = modo === 'hoy' && it.hora <= ahoraHM;
-  return `<div class="fila med${toca ? ' toca' : ''}" data-k="${it.id}">
-    <div class="hora">${it.hora}</div><div class="riel"><span class="cap">${ico('pill')}</span></div>
-    <div class="cuerpo">
-      ${toca ? `<span class="chip amb">${ico('clock')}Toca ahora</span>` : ''}
-      <p class="tit">${esc(r.nombre)}</p>
-      ${detalle ? `<p class="sub">${detalle}</p>` : ''}
-      ${modo === 'hoy' ? boton(toca ? 'pri' : 'sec') : ''}
-    </div></div>`;
+  return fila('med' + (toca ? ' toca' : ''), it.id, it.hora, `<div class="tarjeta-fila"><span class="ic">${ico('pill')}</span>
+    <div class="txt">${toca ? `<span class="chip amb">${ico('clock')}Toca ahora</span>` : ''}<p class="tit">${esc(r.nombre)}</p>${detalle ? `<p class="sub">${detalle}</p>` : ''}</div>
+    ${modo === 'hoy' ? boton(toca ? 'pri' : 'sec') : ''}</div>`);
 }
 
 function filaMedir(it, fecha, modo) {
@@ -78,15 +70,13 @@ function filaMedir(it, fecha, modo) {
   const tipos = ORDEN_TIPOS.filter((t) => ms.some((m) => m.tipo === t)).map((t) => TIPOS[t].nombre);
   const hecho = tipos.length > 0;
   const sub = hecho ? `Anotado: ${tipos.join(', ')}` : (modo === 'pasado' ? 'No quedó anotado' : 'Presión, pulso, azúcar y oxígeno');
-  return `<div class="fila medir${hecho ? ' hecho' : ''}" data-k="medir${it.i}">
-    <div class="hora">${it.hora}</div><div class="riel"><span class="cap">${ico(hecho ? 'check' : 'pulse')}</span></div>
-    <div class="cuerpo"><p class="tit">Medir a Juan</p><p class="${hecho ? 'firma' : 'sub'}">${sub}</p>
-      ${modo === 'hoy' ? `<a class="btn sec" href="#medir">${ico('plus')}Anotar</a>` : ''}</div></div>`;
+  return fila('medir' + (hecho ? ' hecho' : ''), 'medir' + it.i, it.hora, `<div class="tarjeta-fila"><span class="ic ${hecho ? 'hecho' : 'medir'}">${ico(hecho ? 'check' : 'pulse')}</span>
+    <div class="txt"><p class="tit">Medir a Juan</p><p class="${hecho ? 'firma' : 'sub'}">${sub}</p></div>
+    ${modo === 'hoy' ? `<a class="btn sec" href="#medir">${ico('plus')}Anotar</a>` : ''}</div>`);
 }
 
-const filaComida = (it) => `<div class="fila comida" data-k="c-${it.nombre}">
-  <div class="hora">${it.hora}</div><div class="riel"><span class="cap gris">${ico(it.icono)}</span></div>
-  <div class="cuerpo"><p class="tit">${it.nombre}</p><p class="sub">${esc(it.texto)}</p></div></div>`;
+const filaComida = (it) => fila('comida', 'c-' + it.nombre, it.hora, `<a class="tarjeta-fila plana" href="#comidas"><span class="ic comida">${ico(it.icono)}</span>
+  <div class="txt"><p class="tit">${it.nombre}</p><p class="sub">${esc(it.texto)}</p></div>${ico('right', 'flecha')}</a>`);
 
 function tiraSemana(hoy, dia) {
   const inicio = sumarDias(deClave(hoy), -3);
@@ -99,6 +89,32 @@ function tiraSemana(hoy, dia) {
   return h + '</div>';
 }
 
+function anillo(dados, total) {
+  const c = 2 * Math.PI * 24, parte = total ? dados / total : 0;
+  return `<svg class="anillo" viewBox="0 0 60 60" role="img" aria-label="${dados} de ${total} remedios dados"><circle class="pista" cx="30" cy="30" r="24"/>
+    <circle class="avance" cx="30" cy="30" r="24" stroke-dasharray="${(c * parte).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 30 30)"/>
+    <text x="30" y="36" text-anchor="middle">${dados}/${total}</text></svg>`;
+}
+
+function tarjetaResumen(dia, modo, items, ahoraHM) {
+  const res = resumenRemedios(dia);
+  if (!estado.config.remedios.length) {
+    return esAdmin()
+      ? `<a class="resumen-dia" href="#ajustes/remedios"><span class="ic">${ico('pill')}</span><div class="txt"><p class="tit">Aún no hay remedios cargados</p><p class="sub">Toca aquí para agregarlos.</p></div>${ico('right', 'flecha')}</a>`
+      : `<div class="resumen-dia"><span class="ic">${ico('pill')}</span><div class="txt"><p class="tit">Aún no hay remedios cargados</p><p class="sub">Fabián los agrega desde su celular.</p></div></div>`;
+  }
+  let cls = '', tit, sub = `${res.dados} de ${res.total} ${res.total === 1 ? 'dado' : 'dados'}`;
+  if (modo === 'futuro') { tit = `${res.total} ${res.total === 1 ? 'remedio' : 'remedios'} este día`; sub = 'Todavía no corresponde anotar.'; }
+  else if (res.faltan === 0) { cls = ' ok'; tit = 'Todos los remedios listos'; }
+  else if (modo === 'pasado') { cls = ' amb'; tit = res.faltan === 1 ? 'Quedó 1 remedio sin anotar' : `Quedaron ${res.faltan} remedios sin anotar`; }
+  else {
+    const tocan = items.filter((i) => i.tipo === 'med' && !estado.tomas[i.id] && i.hora <= ahoraHM).length;
+    if (tocan) { cls = ' amb'; sub += tocan === 1 ? ' · 1 toca ahora' : ` · ${tocan} tocan ahora`; }
+    tit = res.faltan === 1 ? 'Falta 1 remedio hoy' : `Faltan ${res.faltan} remedios hoy`;
+  }
+  return `<div class="resumen-dia${cls}">${anillo(res.dados, res.total)}<div class="txt"><p class="tit">${tit}</p><p class="sub">${sub}</p></div></div>`;
+}
+
 function ultimas() {
   const celdas = ORDEN_TIPOS.map((t) => {
     const m = estado.mediciones.find((x) => x.tipo === t);
@@ -109,6 +125,8 @@ function ultimas() {
   return `<p class="rotulo">${ico('pulse')}Últimas mediciones</p><div class="ultimas">${celdas}</div>`;
 }
 
+const saludo = () => { const h = estado.ahora.getHours(); return `${h < 12 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches'}, ${esc(estado.quien)}`; };
+
 export function render() {
   const hoy = claveFecha(estado.ahora);
   const primero = claveFecha(sumarDias(estado.ahora, -3)), ultimo = claveFecha(sumarDias(estado.ahora, 3)), ayer = claveFecha(sumarDias(estado.ahora, -1));
@@ -118,26 +136,15 @@ export function render() {
   const modo = dia === hoy ? 'hoy' : dia < hoy ? 'pasado' : 'futuro';
   const ahoraHM = hhmm(estado.ahora);
   const items = itemsDelDia(dia);
-  const res = resumenRemedios(dia);
   const acompana = estado.turnos[dia];
 
-  let resumen;
-  if (!estado.config.remedios.length) resumen = `<a class="resumen neutro" href="#ajustes/remedios">${ico('pill')}<span>Aún no hay remedios cargados. Toca aquí para agregarlos.</span></a>`;
-  else if (modo === 'futuro') resumen = `<p class="resumen neutro">${ico('pill')}<span>${res.total} ${res.total === 1 ? 'remedio' : 'remedios'} este día</span></p>`;
-  else if (res.faltan === 0) resumen = `<p class="resumen ok">${ico('ccheck')}<span>Todos los remedios listos</span></p>`;
-  else if (modo === 'pasado') resumen = `<p class="resumen amb">${ico('alert')}<span>${res.faltan === 1 ? 'Quedó 1 remedio sin anotar' : `Quedaron ${res.faltan} remedios sin anotar`}</span></p>`;
-  else {
-    const tocan = items.filter((i) => i.tipo === 'med' && !estado.tomas[i.id] && i.hora <= ahoraHM).length;
-    resumen = `<p class="resumen ${tocan ? 'amb' : 'neutro'}">${ico('pill')}<span>${res.faltan === 1 ? 'Falta 1 remedio hoy' : `Faltan ${res.faltan} remedios hoy`}</span></p>`;
-  }
-
   let linea = '', franjaActual = '', pusoAhora = modo !== 'hoy';
-  const marcaAhora = `<div class="fila marca-ahora" id="ahora"><div class="hora">${ahoraHM}</div><div class="riel"><span class="punto"></span></div><div class="cuerpo"><span>Ahora</span></div></div>`;
+  const marcaAhora = `<div class="fila marca-ahora" id="ahora"><div class="hora">${ahoraHM}</div><div class="riel"><span class="punto"></span></div><p class="ahora-txt">Ahora</p></div>`;
   items.forEach((it) => {
     const f = franja(it.hora);
     if (f !== franjaActual) {
       franjaActual = f;
-      linea += `<div class="fila ancla"><div class="hora"></div><div class="riel"><span class="cap chica">${ico(ICONO_FRANJA[f])}</span></div><div class="cuerpo"><p class="rotulo">${f}</p></div></div>`;
+      linea += `<div class="fila ancla"><div class="hora"></div><div class="riel"></div><p class="rotulo">${ico(ICONO_FRANJA[f])}${f}</p></div>`;
     }
     if (!pusoAhora && it.hora > ahoraHM) { linea += marcaAhora; pusoAhora = true; }
     linea += it.tipo === 'med' ? filaMed(it, modo, ahoraHM, dia, anotable) : it.tipo === 'medir' ? filaMedir(it, dia, modo) : filaComida(it);
@@ -146,17 +153,17 @@ export function render() {
   if (!items.length) linea = '<p class="vacio-txt">No hay nada anotado para este día.</p>';
 
   const instalar = modo === 'hoy' && !window.navigator.standalone && /iPhone|iPad|iPod/.test(navigator.userAgent) && !leerLocal('cj_instalada')
-    ? `<div class="panel"><p class="tit">${ico('info')}Para tenerla siempre a mano</p><p class="sub">Toca el botón Compartir de Safari y elige "Agregar a inicio".</p><button class="btn quieto" data-a="ocultarInstalar">${ico('check')}Listo, ya la agregué</button></div>` : '';
+    ? `<div class="panel"><p class="tit">Para tenerla siempre a mano</p><p class="sub">Toca el botón Compartir de Safari y elige "Agregar a inicio".</p><button class="btn quieto" data-a="ocultarInstalar">${ico('check')}Listo, ya la agregué</button></div>` : '';
 
-  return `<div class="envoltura">
-    <p class="fecha">${fechaLarga(deClave(dia))}</p>
-    ${tiraSemana(hoy, dia)}
+  return `<div class="envoltura hoy">
+    <div class="hoy-cab"><p class="saludo">${saludo()}</p><p class="fecha">${fechaLarga(deClave(dia))}</p>${tiraSemana(hoy, dia)}</div>
     ${modo !== 'hoy' ? `<div class="panel otro-dia"><p class="sub">${dia === ayer ? 'Estás viendo ayer. Si faltó anotar un remedio, se puede marcar aquí.' : modo === 'pasado' ? 'Estás viendo un día que ya pasó. Aquí no se puede anotar.' : 'Estás viendo un día que viene. Aquí no se puede anotar.'}</p><button class="btn pri" data-a="verDia" data-dia="${hoy}">${ico('left')}Volver a hoy</button></div>` : ''}
-    <a class="acompana" href="#agenda">${ico('user')}<span>${modo === 'hoy' ? 'Acompaña hoy' : 'Acompaña'}: <b>${acompana ? esc(acompana) : 'sin asignar'}</b></span></a>
-    ${resumen}
-    <div class="linea">${linea}</div>
-    ${modo === 'hoy' ? ultimas() : ''}
-    ${instalar}
+    <div class="hoy-cols">
+      <div class="hoy-resumen">${tarjetaResumen(dia, modo, items, ahoraHM)}
+        <a class="acompana" href="#agenda">${ico('user')}<span>${modo === 'hoy' ? 'Acompaña hoy' : 'Acompaña'}: <b>${acompana ? esc(acompana) : 'sin asignar'}</b></span>${ico('right', 'flecha')}</a></div>
+      <div class="linea">${linea}</div>
+      <div class="hoy-ultimas">${modo === 'hoy' ? ultimas() : ''}${instalar}</div>
+    </div>
   </div>`;
 }
 

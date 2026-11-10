@@ -1,7 +1,7 @@
 // El cuaderno de Juan — arranque, navegación y armazón de la app.
 import { firebaseConfig } from './config.js';
 import * as db from './db.js';
-import { estado, acciones, fijarPintar, pintar, ir, aviso, ejecutarDeshacer, guardarLocal, leerLocal } from './nucleo.js';
+import { estado, acciones, fijarPintar, pintar, ir, aviso, ejecutarDeshacer, guardarLocal, leerLocal, aplicarTema } from './nucleo.js';
 import { esc, ico, igualar, porId, val, claveFecha, sumarDias, lunesDe, idAzar } from './util.js';
 import { PERSONAS, completarConfig, configInicial } from './datos.js';
 import * as hoy from './vistas/hoy.js';
@@ -22,7 +22,7 @@ const VISTAS = {
   medir: { render: medir.render, titulo: medir.titulo, pestana: 'medir' },
   comidas: { render: comidas.render, titulo: () => 'Comidas', pestana: 'comidas' },
   agenda: { render: agenda.render, titulo: agenda.titulo, pestana: 'agenda' },
-  ajustes: { render: ajustes.render, titulo: ajustes.titulo, pestana: 'agenda' },
+  ajustes: { render: ajustes.render, titulo: ajustes.titulo, pestana: 'ajustes' },
   emergencia: { render: emergencia.render, titulo: () => 'Emergencia', pestana: '' },
 };
 const PESTANAS = [['hoy', 'home', 'Hoy'], ['medir', 'pulse', 'Medir'], ['comidas', 'food', 'Comidas'], ['agenda', 'cal', 'Agenda']];
@@ -62,7 +62,9 @@ function armazon(r) {
       ${esEmergencia ? '' : `<a class="sos" href="#emergencia">${ico('phone')}Emergencia</a>`}</header>
     ${navigator.onLine === false ? `<p class="sin-senal">${ico('info')}Sin señal. Lo que anotes se guarda y se envía cuando vuelva.</p>` : ''}
     <main id="vista" data-k="${esc(r.completa)}">${v.render(r.args)}</main>
-    <nav class="pestanas" aria-label="Secciones">${PESTANAS.map(([id, icono, nombre]) => `<a href="#${id}" class="${v.pestana === id ? 'on' : ''}"${v.pestana === id ? ' aria-current="page"' : ''}>${ico(icono)}${nombre}</a>`).join('')}</nav>`;
+    <nav class="pestanas" aria-label="Secciones"><p class="marca-nav solo-pc"><span class="ic">${ico('pill')}</span>El cuaderno<br>de Juan</p>
+      ${PESTANAS.map(([id, icono, nombre]) => { const on = v.pestana === id || (id === 'agenda' && v.pestana === 'ajustes'); return `<a href="#${id}" class="${v.pestana === id ? 'on' : on ? 'on-movil' : ''}"${on ? ' aria-current="page"' : ''}>${ico(icono)}${nombre}</a>`; }).join('')}
+      <a href="#ajustes" class="solo-pc abajo${v.pestana === 'ajustes' ? ' on' : ''}">${ico('gear')}Ajustes</a></nav>`;
 }
 
 function pintarTodo() {
@@ -87,6 +89,7 @@ function pintarTodo() {
   }
 }
 fijarPintar(pintarTodo);
+aplicarTema();
 
 // ---------- Acciones generales ----------
 acciones.recargar = () => location.reload();

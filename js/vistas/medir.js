@@ -9,18 +9,31 @@ const AVISO_MEDICO = 'Rangos generales. Valen primero las indicaciones de su mé
 const deTipo = (t) => estado.mediciones.filter((m) => m.tipo === t);
 const cuando = (m) => `${diaRelativo(m.fecha, claveFecha(estado.ahora))} ${hhmm(new Date(m.ts))}`;
 
+// Mini gráfico de los últimos 7 días para la tarjeta de cada medición.
+function chispa(t) {
+  const desde = sumarDias(estado.ahora, -6).getTime();
+  const ms = deTipo(t).filter((m) => m.ts >= desde).slice().reverse();
+  if (ms.length < 2) return '<svg class="chispa" viewBox="0 0 120 26" aria-hidden="true"><line class="vacia" x1="3" y1="13" x2="117" y2="13"/></svg>';
+  const vs = ms.map((m) => Number(m.valor)), lo = Math.min.apply(null, vs), hi = Math.max.apply(null, vs);
+  const x = (k) => 4 + (k * 112) / (vs.length - 1), y = (v) => (hi === lo ? 13 : 22 - ((v - lo) / (hi - lo)) * 18);
+  const pts = vs.map((v, k) => `${x(k).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  return `<svg class="chispa" viewBox="0 0 120 26" aria-hidden="true"><polyline points="${pts}"/><circle cx="${x(vs.length - 1).toFixed(1)}" cy="${y(vs[vs.length - 1]).toFixed(1)}" r="3.2"/></svg>`;
+}
+
 function principal() {
+  const hoy = claveFecha(estado.ahora);
   const tarjetas = ORDEN_TIPOS.map((t) => {
     const T = TIPOS[t], m = deTipo(t)[0];
     const c = m ? clasificar(m, estado.config.rangos) : '';
-    return `<a class="tarjeta-medir" href="#medir/${t}">
-      <div class="arriba"><span class="cap redonda">${ico(T.icono)}</span><p class="n">${T.nombre}</p></div>
-      <p class="v ${c}">${m ? valorTexto(m) : '—'}</p>
-      <p class="estado ${c}">${m ? `<span class="luz"></span>${ETIQUETA[c]}` : 'Sin datos'}</p>
-      <p class="cuando">${m ? cuando(m) : 'Aún no se anota'}</p>
+    const cuandoCorto = m ? (m.fecha === hoy ? hhmm(new Date(m.ts)) : diaRelativo(m.fecha, hoy)) : '';
+    return `<a class="tarjeta-medir t-${t}" href="#medir/${t}">
+      <div class="arriba"><span class="ic">${ico(T.icono)}</span><p class="n">${T.nombre}</p></div>
+      <p class="v ${m ? c : 'vacio'}">${m ? valorTexto(m) : '—'}</p>
+      <p class="estado ${c}">${m ? `<span class="luz"></span>${c === 'rojo' ? 'Fuera' : ETIQUETA[c]} · ${cuandoCorto}` : 'Sin datos todavía'}</p>
+      ${chispa(t)}
       <span class="anotar">${ico('plus')}Anotar</span></a>`;
   }).join('');
-  return `<div class="envoltura">
+  return `<div class="envoltura medir">
     <details class="plegable"><summary>${ico('info')}Cómo medir bien${ico('down', 'giro')}</summary>
       <ol><li>Sentado y tranquilo 5 minutos antes.</li><li>Siempre el mismo brazo.</li><li>Sin hablar mientras se mide.</li><li>Mañana y tarde, a la misma hora.</li></ol></details>
     <div class="grilla-medir">${tarjetas}</div>
@@ -89,6 +102,15 @@ function formulario(t) {
   </div>`;
 }
 
+// Rutina acompañada: después de guardar, ofrece seguir con lo que falta medir en esta ronda (última media hora).
+function siguientes(t, discreto) {
+  const hace = Date.now() - 30 * 60000;
+  const faltan = ORDEN_TIPOS.filter((x) => x !== t && !estado.mediciones.some((m) => m.tipo === x && m.ts >= hace));
+  const volver = `<a class="btn ${faltan.length || discreto ? 'quieto' : 'pri'}" href="#hoy">${ico('home')}Volver a Hoy</a>`;
+  if (!faltan.length) return `<p class="rotulo">${ico('ccheck')}Ya están las 4 mediciones</p>${volver}`;
+  return `<p class="rotulo">Seguir con</p><div class="seguir">${faltan.map((x, k) => `<a class="btn ${k === 0 && !discreto ? 'pri' : 'sec'}" href="#medir/${x}">${ico(TIPOS[x].icono)}${TIPOS[x].nombre}</a>`).join('')}</div>${volver}`;
+}
+
 function resultado(t, id) {
   const m = estado.mediciones.find((x) => x.id === id);
   if (!m) return `<div class="envoltura"><p class="vacio-txt">Esta medición se borró.</p><a class="btn pri" href="#medir">${ico('left')}Volver a Medir</a></div>`;
@@ -102,7 +124,7 @@ function resultado(t, id) {
       <p class="sub">${TIPOS[t].nombre}${detalleMomento(m) ? ' ' + detalleMomento(m) : ''} · Guardado por ${esc(m.quien)} a las ${hhmm(new Date(m.ts))}</p>
     </div>
     ${mal ? `<div class="alerta131"><p>Si tiene dolor en el pecho, falta de aire o se desmaya, llamen al 131.</p><a class="btn rojo" href="tel:131">${ico('phone')}Llamar al 131</a></div>` : ''}
-    <a class="btn ${mal || c === 'rojo' ? 'sec' : 'pri'}" href="#medir">${ico('check')}Listo</a>
+    ${siguientes(t, mal || c === 'rojo')}
     <p class="nota">${AVISO_MEDICO}</p>
   </div>`;
 }
