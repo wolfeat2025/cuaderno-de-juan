@@ -1,9 +1,9 @@
 // MEDIR: anotar presión, pulso, azúcar y oxígeno; historial, gráfico y resumen para el médico.
-import { estado, acciones, pintar, ir, aviso } from '../nucleo.js';
+import { estado, acciones, pintar, ir, aviso, paraGuardar } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, porId, claveFecha, deClave, sumarDias, hhmm, fechaCorta, fechaLarga, diaRelativo, copiar, compartir } from '../util.js';
 import { TIPOS, ORDEN_TIPOS, ETIQUETA, clasificar, mensaje, azucarBaja, valorTexto, detalleMomento } from '../datos.js';
-import { itemsDelDia } from './hoy.js';
+import { itemsDelDia, sinSubir } from '../plan.js';
 
 const AVISO_MEDICO = 'Rangos generales. Valen primero las indicaciones de su médico.';
 const deTipo = (t) => estado.mediciones.filter((m) => m.tipo === t);
@@ -37,7 +37,7 @@ function principal() {
     <details class="plegable"><summary>${ico('info')}Cómo medir bien${ico('down', 'giro')}</summary>
       <ol><li>Sentado y tranquilo 5 minutos antes.</li><li>Siempre el mismo brazo.</li><li>Sin hablar mientras se mide.</li><li>Mañana y tarde, a la misma hora.</li></ol></details>
     <div class="grilla-medir">${tarjetas}</div>
-    <a class="btn quieto" href="#medir/resumen">${ico('share')}Resumen para el médico</a>
+    <a class="btn quieto" href="#resumen">${ico('chart')}Resumen y reportes</a>
     <p class="nota">${estado.config.rangos.provisorio ? 'Los colores usan rangos provisorios. ' : ''}${AVISO_MEDICO}</p>
   </div>`;
 }
@@ -73,7 +73,7 @@ function historial(t) {
   ms.forEach((m) => {
     if (m.fecha !== dia) { dia = m.fecha; h += `<p class="rotulo dia-hist">${diaRelativo(dia, hoy) === fechaCorta(deClave(dia)) ? fechaLarga(deClave(dia)) : diaRelativo(dia, hoy)}</p>`; }
     const c = clasificar(m, estado.config.rangos), abierta = estado.ui.medAbierta === m.id;
-    const extra = [detalleMomento(m), m.animo ? `se siente ${m.animo.toLowerCase()}` : '', m.nota].filter(Boolean).map(esc).join(' · ');
+    const extra = [detalleMomento(m), m.animo ? `se siente ${m.animo.toLowerCase()}` : '', m.nota, m.despues ? 'anotado después' : '', sinSubir(m) ? 'sin subir' : ''].filter(Boolean).map(esc).join(' · ');
     h += `<div class="reg" data-k="${m.id}"><div class="toca-area" data-a="abrirMed" data-id="${m.id}" role="button" tabindex="0">
         <span class="h">${hhmm(new Date(m.ts))}</span><span class="v ${c}">${valorTexto(m)}</span><span class="estado ${c}"><span class="luz"></span>${ETIQUETA[c]}</span></div>
       <p class="sub">${esc(m.quien)}${extra ? ' · ' + extra : ''}</p>
@@ -93,6 +93,9 @@ function formulario(t) {
     <div class="numeros">${campos}</div>
     ${momento}
     <div class="grupo"><p class="rotulo">¿Cómo se siente? (opcional)</p><div class="opciones">${animos}</div></div>
+    <div class="grupo"><p class="rotulo">¿A qué hora se midió?</p><div class="opciones">
+      <button class="opcion${u.otraHora ? '' : ' sel'}" data-a="horaMedicion" data-v="ahora">Recién</button><button class="opcion${u.otraHora ? ' sel' : ''}" data-a="horaMedicion" data-v="otra">Más temprano</button></div>
+      ${u.otraHora ? `<input class="texto" id="mhora" type="time" value="${u.horaIni || ''}" aria-label="Hora en que se midió">` : ''}</div>
     <input class="texto" id="mnota" placeholder="Nota corta (opcional)" maxlength="120" autocomplete="off">
     ${u.errorMedir ? `<p class="error" role="alert">${ico('alert')}${esc(u.errorMedir)}</p>` : ''}
     <button class="btn pri" data-a="guardarMedicion" data-tipo="${t}">${ico('check')}Guardar</button>
@@ -181,10 +184,11 @@ export const titulo = (args) => (args[0] === 'resumen' ? 'Resumen' : TIPOS[args[
 
 acciones.elegirAnimo = (d) => { estado.ui.animo = estado.ui.animo === d.v ? '' : d.v; pintar(); };
 acciones.elegirMomento = (d) => { estado.ui.momento = d.v; pintar(); };
+acciones.horaMedicion = (d) => { estado.ui.otraHora = d.v === 'otra'; estado.ui.horaIni = hhmm(new Date()); pintar(); };
 acciones.abrirMed = (d) => { estado.ui.medAbierta = estado.ui.medAbierta === d.id ? null : d.id; pintar(); };
 acciones.borrarMed = (d) => {
   const m = estado.mediciones.find((x) => x.id === d.id); if (!m) return;
-  const copia = Object.assign({}, m); delete copia.id;
+  const copia = paraGuardar(m);
   db.borrar('mediciones', d.id); estado.ui.medAbierta = null;
   aviso('Medición borrada', () => db.poner('mediciones', d.id, copia));
 };
@@ -199,13 +203,23 @@ acciones.guardarMedicion = (d) => {
   if (t === 'presion' && vals[1] >= vals[0]) { u.errorMedir = 'Revisa los números: el de arriba debe ser mayor que el de abajo.'; pintar(); return; }
   if (t === 'azucar' && !u.momento) { u.errorMedir = 'Elige si fue en ayunas o después de comer.'; pintar(); return; }
   const ahora = new Date(), id = db.nuevoId('mediciones');
-  const m = { tipo: t, valor: vals[0], fecha: claveFecha(ahora), ts: ahora.getTime(), quien: estado.quien };
+  let ts = ahora.getTime();
+  if (u.otraHora) {
+    const h = val('mhora');
+    if (!/^\d\d:\d\d$/.test(h)) { u.errorMedir = 'Pon la hora en que se midió.'; pintar(); return; }
+    const real = new Date(); real.setHours(Number(h.slice(0, 2)), Number(h.slice(3, 5)), 0, 0);
+    if (real.getTime() > ts) { u.errorMedir = 'Esa hora todavía no llega. Revisa la hora.'; pintar(); return; }
+    ts = real.getTime();
+  }
+  // `ts` es la hora real de la medición; `creado` es cuándo se anotó.
+  const m = { tipo: t, valor: vals[0], fecha: claveFecha(ahora), ts, creado: ahora.getTime(), quien: estado.quien };
+  if (u.otraHora) m.despues = true;
   if (t === 'presion') m.valor2 = vals[1];
   if (t === 'azucar') m.momento = u.momento;
   if (u.animo) m.animo = u.animo;
   const nota = val('mnota'); if (nota) m.nota = nota;
   db.poner('mediciones', id, m);
-  u.errorMedir = ''; u.animo = ''; u.momento = '';
+  u.errorMedir = ''; u.animo = ''; u.momento = ''; u.otraHora = false;
   aviso(`${T.nombre} guardada`, () => { db.borrar('mediciones', id); ir('medir/' + t); });
   ir(`medir/${t}/listo/${id}`);
 };

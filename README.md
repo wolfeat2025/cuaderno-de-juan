@@ -56,8 +56,10 @@ Todo vive bajo `/familias/{codigo}/`:
 
 | Colección | Documento | Contenido |
 |---|---|---|
-| `config` | `app` | remedios, rangos, horas de medir, menú semanal, datos de emergencia, contactos |
+| `config` | `app` | remedios, rangos, horas de medir, menú semanal y porciones, datos de emergencia, contactos |
+| `config` | `plan-{fecha}` | copia del plan de ese día (remedios, comidas y horas de medir), para que cambiar la configuración no altere el historial |
 | `tomas` | `{fecha}_{remedio}_{hora}` | quién dio el remedio y a qué hora (el id fijo evita anotar dos veces la misma toma) |
+| `tomas` | `{fecha}_comida_{comida}` | qué comió (todo, una parte o nada), con `clase: 'comida'` |
 | `mediciones` | id automático | tipo, valor, momento (azúcar), cómo se siente, nota, quién, hora |
 | `compras` | id automático | producto, comprado |
 | `turnos` | `{fecha}` | quién acompaña ese día |
@@ -73,9 +75,17 @@ js/db.js          Firebase: sesión anónima, Firestore, respaldo
 js/datos.js       valores iniciales, rangos y clasificación por colores
 js/nucleo.js      estado compartido y aviso "Deshacer"
 js/util.js        fechas, actualización del DOM, copiar y compartir
-js/vistas/        hoy, medir, comidas, agenda, emergencia, ajustes
+js/plan.js        plan de cada día y copia para el historial
+js/vistas/        hoy, medir, comidas, agenda, emergencia, ajustes, resumen (panel y reportes PDF)
 sw.js             deja la app guardada para abrir sin señal
 firestore.rules   reglas de seguridad
 ```
 
-Los recordatorios no los hace la app: se usan las alarmas del Reloj del iPhone (guía en **Ajustes → Alarmas de los remedios**).
+Los recordatorios no los hace la app: se usa un calendario compartido de iCloud o las alarmas del Reloj (guía en **Ajustes → Alarmas de los remedios**).
+
+## 8. Resumen y reportes
+
+- **Resumen** (desde Hoy o Medir, y en el menú del computador): panel acumulado con remedios, mediciones, comidas y lo más reciente.
+- **Reporte en PDF**: elige un día o una semana y toca **Guardar como PDF**. Se arma en el navegador; no se envía a ningún servidor.
+- En cada registro, `ts` es la hora real de lo ocurrido y `creado` es cuándo se anotó.
+- Solo quien entra como **Fabián** ve las opciones de administración. Es para simplificar la pantalla a los demás, no una barrera de seguridad.

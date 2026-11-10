@@ -10,6 +10,8 @@ import * as comidas from './vistas/comidas.js';
 import * as agenda from './vistas/agenda.js';
 import * as emergencia from './vistas/emergencia.js';
 import * as ajustes from './vistas/ajustes.js';
+import * as resumen from './vistas/resumen.js';
+import { resumenRemedios, asegurarPlanHoy } from './plan.js';
 
 const params = new URLSearchParams(location.search);
 const EMULADOR = params.get('emu') === '1' && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
@@ -20,10 +22,11 @@ if (EMULADOR) window.__estado = estado;   // solo para las pruebas locales
 const VISTAS = {
   hoy: { render: hoy.render, titulo: () => 'Hoy', pestana: 'hoy' },
   medir: { render: medir.render, titulo: medir.titulo, pestana: 'medir' },
-  comidas: { render: comidas.render, titulo: () => 'Comidas', pestana: 'comidas' },
+  comidas: { render: comidas.render, titulo: comidas.titulo, pestana: 'comidas' },
   agenda: { render: agenda.render, titulo: agenda.titulo, pestana: 'agenda' },
   ajustes: { render: ajustes.render, titulo: ajustes.titulo, pestana: 'ajustes' },
   emergencia: { render: emergencia.render, titulo: () => 'Emergencia', pestana: '' },
+  resumen: { render: resumen.render, titulo: resumen.titulo, pestana: 'resumen' },
 };
 const PESTANAS = [['hoy', 'home', 'Hoy'], ['medir', 'pulse', 'Medir'], ['comidas', 'food', 'Comidas'], ['agenda', 'cal', 'Agenda']];
 
@@ -56,14 +59,17 @@ function armazon(r) {
   if (r.nombre === 'ambulancia') return emergencia.renderAmbulancia();
   const v = VISTAS[r.nombre] || VISTAS.hoy;
   const esEmergencia = r.nombre === 'emergencia';
-  const res = r.nombre === 'hoy' ? hoy.resumenRemedios(claveFecha(estado.ahora)) : null;
+  const res = r.nombre === 'hoy' ? resumenRemedios(claveFecha(estado.ahora)) : null;
+  const subiendo = estado.pendientes > 0 && estado.pendDesde && Date.now() - estado.pendDesde > 4000;
   const bajoTitulo = res && res.total ? `<p class="bajo-titulo">${res.faltan === 0 ? 'Remedios listos' : res.faltan === 1 ? 'Falta 1 remedio' : `Faltan ${res.faltan} remedios`}</p>` : '';
   return `<header class="tope${esEmergencia ? ' rojo' : ''}"><div class="titulos"><h1>${esc(v.titulo(r.args))}</h1>${bajoTitulo}</div>
       ${esEmergencia ? '' : `<a class="sos" href="#emergencia">${ico('phone')}Emergencia</a>`}</header>
-    ${navigator.onLine === false ? `<p class="sin-senal">${ico('info')}Sin señal. Lo que anotes se guarda y se envía cuando vuelva.</p>` : ''}
+    ${navigator.onLine === false ? `<p class="sin-senal no-imprimir">${ico('info')}Sin señal. Lo que anotes se guarda en este celular y se sube cuando vuelva.</p>`
+      : subiendo ? `<p class="sin-senal no-imprimir">${ico('clock')}${estado.pendientes === 1 ? 'Hay 1 registro guardado en este celular que todavía no sube.' : `Hay ${estado.pendientes} registros guardados en este celular que todavía no suben.`}</p>` : ''}
     <main id="vista" data-k="${esc(r.completa)}">${v.render(r.args)}</main>
     <nav class="pestanas" aria-label="Secciones"><p class="marca-nav solo-pc"><span class="ic">${ico('pill')}</span>El cuaderno<br>de Juan</p>
       ${PESTANAS.map(([id, icono, nombre]) => { const on = v.pestana === id || (id === 'agenda' && v.pestana === 'ajustes'); return `<a href="#${id}" class="${v.pestana === id ? 'on' : on ? 'on-movil' : ''}"${on ? ' aria-current="page"' : ''}>${ico(icono)}${nombre}</a>`; }).join('')}
+      <a href="#resumen" class="solo-pc${v.pestana === 'resumen' ? ' on' : ''}">${ico('chart')}Resumen</a>
       <a href="#ajustes" class="solo-pc abajo${v.pestana === 'ajustes' ? ' on' : ''}">${ico('gear')}Ajustes</a></nav>`;
 }
 
@@ -122,7 +128,7 @@ document.addEventListener('keydown', (e) => {
   if (t.getAttribute && t.getAttribute('role') === 'button') { e.preventDefault(); t.click(); }
 });
 porId('aviso-deshacer').addEventListener('click', ejecutarDeshacer);
-window.addEventListener('hashchange', () => { estado.ui = { irAhora: true }; window.scrollTo(0, 0); pintar(); });
+window.addEventListener('hashchange', () => { estado.ui = { irAhora: true }; if (ruta().nombre === 'resumen') resumen.alEntrar(); window.scrollTo(0, 0); pintar(); });
 window.addEventListener('online', pintar);
 window.addEventListener('offline', pintar);
 window.addEventListener('scroll', () => { document.body.classList.toggle('bajo', window.pageYOffset > 150); }, { passive: true });
@@ -139,17 +145,28 @@ function suscribir() {
   diaSuscrito = claveFecha(ahora);
   darDeBaja = db.escuchar(claveFecha(sumarDias(ahora, -8)), claveFecha(lunesDe(ahora)), {
     config: (datos, deCache) => {
-      if (datos) estado.config = completarConfig(datos);
+      if (datos) { estado.config = completarConfig(datos); asegurarPlanHoy(); }
       else if (!deCache) db.guardarConfig(configInicial());   // primer uso: crear el cuaderno con los valores iniciales
       pintar();
     },
-    tomas: (lista) => { estado.tomas = {}; lista.forEach((t) => { estado.tomas[t.id] = t; }); pintar(); },
-    mediciones: (lista) => { estado.mediciones = lista.sort((a, b) => b.ts - a.ts); pintar(); },
+    planes: (lista) => { estado.planes = {}; lista.forEach((p) => { estado.planes[p.fecha] = p; }); estado.planesListos = true; asegurarPlanHoy(); pintar(); },
+    tomas: (lista) => { estado.tomas = {}; lista.forEach((t) => { estado.tomas[t.id] = t; }); contarPendientes(); pintar(); },
+    mediciones: (lista) => { estado.mediciones = lista.sort((a, b) => b.ts - a.ts); contarPendientes(); pintar(); },
     turnos: (lista) => { estado.turnos = {}; lista.forEach((t) => { estado.turnos[t.fecha] = t.quien; }); pintar(); },
-    compras: (lista) => { estado.compras = lista; pintar(); },
+    compras: (lista) => { estado.compras = lista; contarPendientes(); pintar(); },
     citas: (lista) => { estado.citas = lista; pintar(); },
     error: (e) => { if (e && e.code === 'permission-denied') { estado.fase = 'error'; estado.error = 'Este link no tiene permiso. Pide el link de nuevo a Fabián.'; pintar(); } },
   });
+}
+// Cuenta lo que está guardado en este celular y todavía no sube a la nube.
+function contarPendientes() {
+  let n = 0;
+  Object.keys(estado.tomas).forEach((id) => { if (estado.tomas[id]._pend) n++; });
+  estado.mediciones.forEach((m) => { if (m._pend) n++; });
+  estado.compras.forEach((c) => { if (c._pend) n++; });
+  estado.pendientes = n;
+  if (!n) estado.pendDesde = 0;
+  else if (!estado.pendDesde) { estado.pendDesde = Date.now(); setTimeout(pintar, 4200); }
 }
 function revisarDia() { if (darDeBaja && claveFecha(new Date()) !== diaSuscrito) suscribir(); }
 
@@ -179,7 +196,7 @@ function arrancar() {
   db.entrar().then(suscribir).catch(() => {
     estado.fase = 'error'; estado.error = 'No hay conexión. La primera vez se necesita internet. Revisa la señal e inténtalo de nuevo.'; pintar();
   });
-  setInterval(() => { estado.ahora = new Date(); revisarDia(); pintar(); }, 30000);
+  setInterval(() => { estado.ahora = new Date(); revisarDia(); asegurarPlanHoy(); pintar(); }, 30000);
 }
 arrancar();
 

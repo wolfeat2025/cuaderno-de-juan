@@ -1,5 +1,5 @@
 // AGENDA: quién acompaña a Juan cada día y las fechas médicas.
-import { estado, acciones, pintar, ir, aviso } from '../nucleo.js';
+import { estado, acciones, pintar, ir, aviso, paraGuardar } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, claveFecha, deClave, sumarDias, lunesDe, fechaMedia, fechaLarga, DIAS, MESES, mayus } from '../util.js';
 import { PERSONAS } from '../datos.js';
@@ -87,7 +87,7 @@ acciones.guardarCita = (d) => {
 };
 acciones.borrarCita = (d) => {
   const c = estado.citas.find((x) => x.id === d.id); if (!c) return;
-  const copia = Object.assign({}, c); delete copia.id;
+  const copia = paraGuardar(c);
   db.borrar('citas', d.id);
   aviso('Fecha borrada', () => db.poner('citas', d.id, copia));
   ir('agenda');

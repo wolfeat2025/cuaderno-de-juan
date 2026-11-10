@@ -155,17 +155,21 @@ acciones.guardarEmergencia = () => {
 const ORDEN_DIAS = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'];
 function leerMenu() {
   const u = estado.ui; if (!u.menu || !porId('mn-desayuno')) return;
-  u.menu[u.menuDia] = {}; COMIDAS.forEach(([k]) => { u.menu[u.menuDia][k] = porId('mn-' + k).value.trim(); u.horas[k] = val('mh-' + k) || u.horas[k]; });
+  u.menu[u.menuDia] = {}; u.porc[u.menuDia] = {};
+  COMIDAS.forEach(([k]) => { u.menu[u.menuDia][k] = porId('mn-' + k).value.trim(); u.porc[u.menuDia][k] = porId('mp-' + k).value.trim(); u.horas[k] = val('mh-' + k) || u.horas[k]; });
 }
 function editorMenu() {
   const u = estado.ui, c = estado.config;
-  if (!u.menu) { u.menu = clon(c.menu || {}); u.horas = clon(c.horasComida); u.menuDia = DIAS_K[estado.ahora.getDay()]; u.ejemplo = !!c.menuEsEjemplo; }
+  if (!u.menu) { u.menu = clon(c.menu || {}); u.porc = clon(c.porciones || {}); u.horas = clon(c.horasComida); u.menuDia = DIAS_K[estado.ahora.getDay()]; u.ejemplo = !!c.menuEsEjemplo; }
   const dia = u.menu[u.menuDia] || {};
   return `<div class="envoltura">${volver('ajustes', 'Volver a Ajustes')}
     <div class="dias-menu">${ORDEN_DIAS.map((k) => `<button class="opcion${k === u.menuDia ? ' sel' : ''}" data-a="diaMenu" data-v="${k}">${DIAS_C[DIAS_K.indexOf(k)]}</button>`).join('')}</div>
     <div class="grupo" data-k="menu-${u.menuDia}">
       ${COMIDAS.map(([k, n]) => `<div class="panel"><div class="titulo-fila"><label class="h3" for="mn-${k}">${n}</label><input class="texto hora-chica" id="mh-${k}" type="time" value="${esc(u.horas[k] || '')}" aria-label="Hora de ${n}"></div>
-        <textarea class="texto" id="mn-${k}" rows="2" maxlength="140">${esc(dia[k] || '')}</textarea></div>`).join('')}</div>
+        <textarea class="texto" id="mn-${k}" rows="2" maxlength="140" aria-label="Qué preparar">${esc(dia[k] || '')}</textarea>
+        <label class="rotulo" for="mp-${k}">Cuánto servir</label>
+        <textarea class="texto" id="mp-${k}" rows="2" maxlength="240" placeholder="Una línea por alimento. Ej: Arroz — 1 taza">${esc(((u.porc[u.menuDia] || {})[k]) || '')}</textarea></div>`).join('')}
+      <p class="nota">Las porciones se copian tal como las indique la nutricionista. Si quedan vacías, la app muestra "Porción pendiente de indicar".</p></div>
     <button class="btn ${u.ejemplo ? 'quieto' : 'sec'}" data-a="alternarEjemplo">${ico(u.ejemplo ? 'alert' : 'ccheck')}${u.ejemplo ? 'Es un ejemplo (tocar si ya lo vio la nutricionista)' : 'Revisado con la nutricionista'}</button>
     <button class="btn pri" data-a="guardarMenu">${ico('check')}Guardar menú</button></div>`;
 }
@@ -173,7 +177,7 @@ acciones.diaMenu = (d) => { leerMenu(); estado.ui.menuDia = d.v; pintar(); };
 acciones.alternarEjemplo = () => { leerMenu(); estado.ui.ejemplo = !estado.ui.ejemplo; pintar(); };
 acciones.guardarMenu = () => {
   leerMenu(); const u = estado.ui;
-  db.guardarConfig({ menu: u.menu, horasComida: u.horas, menuEsEjemplo: u.ejemplo });
+  db.guardarConfig({ menu: u.menu, porciones: u.porc, horasComida: u.horas, menuEsEjemplo: u.ejemplo });
   u.menu = null; aviso('Menú guardado'); ir('ajustes');
 };
 
@@ -195,7 +199,16 @@ function alarmas() {
   estado.config.remedios.filter((r) => r.activo !== false).forEach((r) => (r.horarios || []).forEach((h) => { (horas[h] = horas[h] || []).push(r.nombre); }));
   const lista = Object.keys(horas).sort();
   return `<div class="envoltura">${volver('ajustes', 'Volver a Ajustes')}
-    <p class="sub grande">La app no suena sola. Los avisos se ponen en la app <b>Reloj</b> del iPhone, una alarma por cada horario.</p>
+    <p class="sub grande">La app no suena sola. Hay dos formas gratis de recibir avisos en el iPhone.</p>
+    <div class="panel"><p class="h3">Opción 1: calendario compartido (recomendada)</p>
+      <p class="sub">Se arma una vez y, si cambia un horario, se corrige en un solo lugar para toda la familia.</p>
+      <ol class="pasos"><li>En la app <b>Calendario</b>, tocar <b>Calendarios</b> y luego <b>Agregar calendario</b>. Nombre: Remedios de Juan.</li>
+        <li>Tocar la <b>i</b> de ese calendario y en <b>Compartido con</b> agregar a la familia.</li>
+        <li>Crear un evento por cada horario${lista.length ? ` (${lista.join(', ')})` : ''}, con <b>Repetir: todos los días</b> y <b>Alerta: a la hora del evento</b>.</li>
+        <li>Cuando suene, abrir El cuaderno de Juan y tocar <b>Ya lo tomó</b>.</li></ol>
+      <p class="nota">Si cambia un horario, se edita el evento y se actualiza en todos los teléfonos.</p></div>
+    <p class="h3">Opción 2: alarmas del Reloj</p>
+    <p class="sub">Suenan más fuerte, pero hay que ponerlas y cambiarlas en cada teléfono.</p>
     ${lista.length ? lista.map((h, i) => `<div class="panel"><p class="h3">Alarma ${i + 1}: ${h}</p><p class="sub">${horas[h].map(esc).join(', ')}</p>
       <ol class="pasos"><li>Abrir <b>Reloj</b> y tocar <b>Alarma</b>.</li><li>Tocar <b>+</b> y poner las <b>${h}</b>.</li><li>En <b>Repetir</b>, marcar todos los días.</li><li>En <b>Etiqueta</b>, escribir: Remedios de Juan ${h}.</li><li>Tocar <b>Guardar</b>.</li></ol></div>`).join('')
     : '<p class="vacio-txt">Primero carga los remedios con sus horarios. Después aquí sale una alarma por cada horario.</p>'}</div>`;

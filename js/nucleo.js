@@ -10,6 +10,10 @@ export const estado = {
   compras: [],
   turnos: {},            // 'AAAA-MM-DD' → nombre
   citas: [],
+  planes: {},            // 'AAAA-MM-DD' -> copia del plan de ese dia
+  planesListos: false,
+  pendientes: 0,         // registros guardados aqui que aun no suben
+  pendDesde: 0,
   ahora: new Date(),
   fase: 'cargando',      // cargando | configurar | bienvenida | quien | app | error
   error: '',
@@ -60,3 +64,6 @@ export function aplicarTema() {
   const metas = document.querySelectorAll('meta[name="theme-color"]');
   for (let i = 0; i < metas.length; i++) { metas[i].removeAttribute('media'); if (fondo) metas[i].setAttribute('content', fondo); }
 }
+
+// Copia de un registro lista para volver a guardarse (sin los campos que agrega la app al leer).
+export const paraGuardar = (d) => { const c = Object.assign({}, d); delete c.id; delete c._pend; return c; };
