@@ -129,17 +129,18 @@ function cargarReporte() {
     .catch(() => { rep.cargando = false; rep.datos = null; rep.clave = rep.modo + rep.fecha; pintar(); });
 }
 const tabla = (cab, filas) => `<table class="tabla"><thead><tr>${cab.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${filas.length ? filas.map((f) => `<tr>${f.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${cab.length}" class="sin">Sin registros.</td></tr>`}</tbody></table>`;
-const sinReg = '<span class="sin">Sin registro</span>';
+const sinReg = '<span class="sin">Sin registro</span>', aunNo = '<span class="sin">Aún no corresponde</span>';
 const estadoTxt = (m) => { const c = clasificar(m, estado.config.rangos); return `<span class="estado ${c} en-linea">${ETIQUETA[c]}</span>`; };
 
 function seccionesDia(f, d) {
   const items = itemsDelDia(f, d), meds = items.filter((i) => i.tipo === 'med'), comidas = items.filter((i) => i.tipo === 'comida');
   const ms = d.mediciones.filter((m) => m.fecha === f).sort((a, b) => a.ts - b.ts);
   const conReg = meds.filter((i) => d.tomas[i.id]).length, comReg = comidas.filter((i) => d.tomas[i.id]).length;
+  const hoy = claveFecha(estado.ahora), ahoraHM = hhmm(estado.ahora), falta = (i) => (f > hoy || (f === hoy && i.hora > ahoraHM) ? aunNo : sinReg);
   return `<div class="cifras"><div><b>${conReg} de ${meds.length}</b><span>tomas con registro</span></div><div><b>${ms.length}</b><span>${ms.length === 1 ? 'medición' : 'mediciones'}</span></div><div><b>${comReg} de ${comidas.length}</b><span>comidas con registro</span></div></div>
-    <h3>Remedios</h3>${tabla(['Hora', 'Remedio', 'Dosis', 'Registro'], meds.map((i) => { const t = d.tomas[i.id]; return [i.hora, esc(i.r.nombre), esc(i.r.dosis || '—'), t ? `Dado a las ${hhmm(new Date(t.ts))} · ${esc(t.quien)}${t.corregido ? ' (hora corregida)' : ''}` : sinReg]; }))}
+    <h3>Remedios</h3>${tabla(['Hora', 'Remedio', 'Dosis', 'Registro'], meds.map((i) => { const t = d.tomas[i.id]; return [i.hora, esc(i.r.nombre), esc(i.r.dosis || '—'), t ? `Dado a las ${hhmm(new Date(t.ts))} · ${esc(t.quien)}${t.corregido ? ' (hora corregida)' : ''}` : falta(i)]; }))}
     <h3>Mediciones</h3>${tabla(['Hora', 'Medición', 'Valor', 'Según rangos', 'Anotó', 'Nota'], ms.map((m) => [hhmm(new Date(m.ts)), TIPOS[m.tipo].nombre + (detalleMomento(m) ? ` (${detalleMomento(m)})` : ''), `<b>${valorTexto(m)}</b>${TIPOS[m.tipo].unidad && m.tipo !== 'oxigeno' ? ' ' + TIPOS[m.tipo].unidad : ''}`, estadoTxt(m), esc(m.quien), esc([m.animo ? `Se siente ${m.animo.toLowerCase()}` : '', m.nota || '', m.despues ? 'Anotado después' : ''].filter(Boolean).join('. ') || '—')]))}
-    <h3>Comidas</h3>${tabla(['Hora', 'Comida', 'Previsto', 'Porción indicada', 'Lo que comió'], comidas.map((i) => { const t = d.tomas[i.id]; return [i.hora, i.nombre, esc(i.texto || '—'), esc(i.porciones ? i.porciones.split('\n').join('; ') : 'Pendiente de indicar'), t ? `${COMIO[t.comio] || 'Anotado'}${t.nota ? ` · ${esc(t.nota)}` : ''} · ${esc(t.quien)}` : sinReg]; }))}`;
+    <h3>Comidas</h3>${tabla(['Hora', 'Comida', 'Previsto', 'Porción indicada', 'Lo que comió'], comidas.map((i) => { const t = d.tomas[i.id]; return [i.hora, i.nombre, esc(i.texto || '—'), esc(i.porciones ? i.porciones.split('\n').join('; ') : 'Pendiente de indicar'), t ? `${COMIO[t.comio] || 'Anotado'}${t.nota ? ` · ${esc(t.nota)}` : ''} · ${esc(t.quien)}` : falta(i)]; }))}`;
 }
 
 function seccionesSemana(lunes, d) {
@@ -150,7 +151,8 @@ function seccionesSemana(lunes, d) {
     if (f > hoy) return [fechaCorta(deClave(f)), '<span class="sin">Aún no llega</span>', '', '', '', '', ''];
     const r = resumenRemedios(f, d), com = itemsDelDia(f, d).filter((i) => i.tipo === 'comida');
     const c = { todo: 0, parte: 0, nada: 0 }; com.forEach((i) => { const t = d.tomas[i.id]; if (t) c[t.comio]++; });
-    return [`<b>${fechaCorta(deClave(f))}</b>`, r.total ? `${r.dados} de ${r.total}` : '—', celdaTipo(f, 'presion'), celdaTipo(f, 'pulso'), celdaTipo(f, 'azucar'), celdaTipo(f, 'oxigeno'), com.length ? `Todo ${c.todo} · Parte ${c.parte} · Nada ${c.nada} · Sin registro ${com.length - c.todo - c.parte - c.nada}` : '—'];
+    const vienen = f === hoy ? com.filter((i) => !d.tomas[i.id] && i.hora > hhmm(estado.ahora)).length : 0;
+    return [`<b>${fechaCorta(deClave(f))}</b>`, r.total ? `${r.dados} de ${r.total}` : '—', celdaTipo(f, 'presion'), celdaTipo(f, 'pulso'), celdaTipo(f, 'azucar'), celdaTipo(f, 'oxigeno'), com.length ? `Todo ${c.todo} · Parte ${c.parte} · Nada ${c.nada} · Sin registro ${com.length - c.todo - c.parte - c.nada - vienen}${vienen ? ` · Por venir ${vienen}` : ''}` : '—'];
   });
   const fuera = d.mediciones.filter((m) => clasificar(m, estado.config.rangos) !== 'verde').sort((a, b) => a.ts - b.ts);
   const sinToma = []; dias.filter((f) => f <= hoy).forEach((f) => itemsDelDia(f, d).filter((i) => i.tipo === 'med' && !d.tomas[i.id] && (f < hoy || i.hora <= hhmm(estado.ahora))).forEach((i) => sinToma.push([fechaCorta(deClave(f)), i.hora, esc(i.r.nombre), esc(i.r.dosis || '—')])));
