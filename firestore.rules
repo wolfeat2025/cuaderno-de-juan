@@ -1,0 +1,24 @@
+rules_version = '2';
+
+// El cuaderno de Juan.
+// Todo vive bajo /familias/{codigo}/{coleccion}/{documento} y solo entra quien:
+//   1) tiene sesión (Firebase Anonymous Auth), y
+//   2) conoce el código largo de la familia (va en el link de invitación).
+// No hay regla para /familias ni para /familias/{codigo}: no se pueden listar,
+// así que los códigos no se pueden descubrir. Todo lo demás queda cerrado.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function entra(codigo) {
+      return request.auth != null
+          && codigo.size() >= 24
+          && codigo.size() <= 64
+          && codigo.matches('^[A-Za-z0-9]+$');
+    }
+
+    match /familias/{codigo}/{coleccion}/{documento} {
+      allow read, write: if entra(codigo)
+                         && coleccion in ['config', 'tomas', 'mediciones', 'compras', 'turnos', 'citas'];
+    }
+  }
+}

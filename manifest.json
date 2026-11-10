@@ -1,0 +1,14 @@
+{
+  "name": "El cuaderno de Juan",
+  "short_name": "Juan",
+  "description": "Cuaderno familiar para cuidar a Juan: remedios, mediciones, comidas y agenda.",
+  "lang": "es-CL",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0B7F72",
+  "icons": [
+    { "src": "iconos/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "iconos/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
