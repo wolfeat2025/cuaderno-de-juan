@@ -81,7 +81,7 @@ function armazon(r) {
         ? `<p class="sin-senal no-imprimir">${ico('clock')}${n === 1 ? `Hay 1 registro guardado en este ${APARATO} que todavía no sube.` : n > 1 ? `Hay ${n} registros guardados en este ${APARATO} que todavía no suben.` : `Hay cambios guardados en este ${APARATO} que todavía no suben.`}</p>`
         : '';
   const bajoTitulo = res && res.total ? `<p class="bajo-titulo">${res.faltan === 0 ? 'Remedios listos' : res.faltan === 1 ? 'Falta 1 remedio' : `Faltan ${res.faltan} remedios`}</p>` : '';
-  return `<header class="tope${esEmergencia ? ' rojo' : ''}"><div class="titulos"><h1>${esc(v.titulo(r.args))}</h1>${bajoTitulo}</div>
+  return `<header class="tope${esEmergencia ? ' rojo' : ''}"><div class="titulos"><h1>${esc(esJuan() && r.nombre === 'hoy' ? 'Mi día' : v.titulo(r.args))}</h1>${bajoTitulo}</div>
       ${esEmergencia ? '' : `<a class="sos" href="#emergencia">${ico('phone')}Emergencia</a>`}</header>
     ${franja}
     <main id="vista" data-k="${esc(r.completa)}">${v.render(r.args)}</main>
@@ -101,16 +101,10 @@ function pintarTodo() {
   else html = armazon(ruta());
   igualar(porId('app'), html);
 
-  // Al entrar a Hoy, bajar hasta lo que toca ahora (como una agenda). En la portada de Juan se parte desde arriba.
-  if (estado.config && estado.quien && estado.ui.irAhora && ruta().nombre === 'hoy' && esJuan()) estado.ui.irAhora = false;
+  // Hoy comienza por el resumen. La familia ve primero el estado y las últimas mediciones.
   if (estado.config && estado.quien && estado.ui.irAhora && ruta().nombre === 'hoy') {
     estado.ui.irAhora = false;
-    const toca = document.querySelector('.fila.toca'), marca = porId('ahora');
-    const destino = toca || marca;
-    if (destino) {
-      const y = destino.getBoundingClientRect().top + window.pageYOffset - (toca ? 108 : 180);
-      window.scrollTo(0, y > 120 ? y : 0);
-    }
+    window.scrollTo(0, 0);
   }
 }
 fijarPintar(pintarTodo);
@@ -142,6 +136,10 @@ document.addEventListener('click', (e) => {
 document.addEventListener('change', (e) => {
   const el = e.target.closest('[data-c]'); if (!el) return;
   const f = acciones[el.getAttribute('data-c')]; if (f) f(el.dataset, el, e);
+});
+document.addEventListener('input', (e) => {
+  const el = e.target.closest('[data-i]'); if (!el) return;
+  const f = acciones[el.getAttribute('data-i')]; if (f) f(el.dataset, el, e);
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
