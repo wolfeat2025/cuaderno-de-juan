@@ -1,7 +1,7 @@
 // HOY: el día de Juan como línea de tiempo compacta (hora, tarea y botón).
 import { estado, acciones, pintar, aviso, guardarLocal, leerLocal, esAdmin, esJuan, compacto, fijarCompacto, paraGuardar } from '../nucleo.js';
 import * as db from '../db.js';
-import { esc, ico, val, claveFecha, deClave, sumarDias, hhmm, fechaLarga, DIAS, mayus } from '../util.js';
+import { esc, ico, val, claveFecha, deClave, sumarDias, hhmm, fechaLarga, diaRelativo, DIAS, mayus } from '../util.js';
 import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, valorTexto } from '../datos.js';
 import { itemsDelDia, resumenRemedios, medicionesDeTurno, medicionesDeTarea, planDe, sinSubir } from '../plan.js';
 
@@ -196,12 +196,34 @@ function tarjetaResumen(dia, modo, items, ahoraHM) {
   return `<div class="resumen-dia${cls}">${anillo(res.dados, res.total)}<div class="txt"><p class="tit">${tit}</p><p class="sub">${sub}</p></div></div>`;
 }
 
+// Resume los registros, sin confundir tareas futuras con atrasos ni dar un veredicto médico.
+function resumenDelDia(dia, modo, items, ahoraHM) {
+  if (modo === 'futuro' || !items.length) return tarjetaResumen(dia, modo, items, ahoraHM);
+  const obligatorios = items.filter((it) => !it.opcional);
+  const pendientes = obligatorios.filter((it) => !itemEstaHecho(it, dia));
+  const vencidos = pendientes.filter((it) => modo === 'pasado' || it.hora <= ahoraHM);
+  const ultimasDelDia = ORDEN_TIPOS.map((t) => estado.mediciones.find((m) => m.tipo === t && m.fecha === dia)).filter(Boolean);
+  const avisos = ultimasDelDia.map((m) => clasificar(m, estado.config.rangos));
+  const revisar = avisos.some((c) => c !== 'verde'), rojo = avisos.includes('rojo');
+  const cls = rojo ? ' alerta' : revisar || vencidos.length ? ' amb' : ' ok';
+  const titulo = revisar ? 'Hay mediciones para revisar'
+    : vencidos.length ? `${vencidos.length === 1 ? 'Falta 1 registro' : `Faltan ${vencidos.length} registros`}${modo === 'pasado' ? ' de ese día' : ' hasta ahora'}`
+    : pendientes.length ? 'Al día por ahora' : 'Todo registrado';
+  const res = resumenRemedios(dia);
+  const sub = [res.total ? `Remedios: ${res.dados} de ${res.total}` : '',
+    pendientes.length > vencidos.length ? `${pendientes.length - vencidos.length} registros para más tarde` : '',
+    revisar ? 'Mira el detalle de las mediciones.' : ''
+  ].filter(Boolean).join(' · ');
+  return `<div class="resumen-dia${cls}" data-k="estado-dia"><span class="ic ${revisar || vencidos.length ? '' : 'hecho'}">${ico(revisar ? 'alert' : vencidos.length ? 'clock' : 'check')}</span><div class="txt"><p class="tit">${titulo}</p>${sub ? `<p class="sub">${sub}</p>` : ''}</div></div>`;
+}
+
 function ultimas() {
+  const hoy = claveFecha(estado.ahora);
   const celdas = ORDEN_TIPOS.map((t) => {
     const m = estado.mediciones.find((x) => x.tipo === t);
     if (!m) return `<a class="celda" href="#medir/${t}"><span class="k">${TIPOS[t].nombre}</span><span class="v vacio">—</span><span class="e">Sin datos</span></a>`;
     const c = clasificar(m, estado.config.rangos);
-    return `<a class="celda" href="#medir/${t}"><span class="k">${TIPOS[t].nombre}</span><span class="v ${c}">${valorTexto(m)}</span><span class="e ${c}">${c === 'rojo' ? 'Fuera' : ETIQUETA[c]}</span></a>`;
+    return `<a class="celda" href="#medir/${t}"><span class="k">${TIPOS[t].nombre}</span><span class="v ${c}">${valorTexto(m)}</span><span class="e ${c}">${c === 'rojo' ? 'Fuera' : ETIQUETA[c]}</span><span class="cuando">${esc(diaRelativo(m.fecha, hoy))} · ${hhmm(new Date(m.ts))}</span>${sinSubir(m) ? '<span class="cuando">Sin subir</span>' : ''}</a>`;
   }).join('');
   return `<p class="rotulo">${ico('pulse')}Últimas mediciones</p><div class="ultimas">${celdas}</div>
     <a class="acompana" href="#resumen">${ico('chart')}<span><b>Resumen de estos días</b></span>${ico('right', 'flecha')}</a>`;
@@ -227,10 +249,9 @@ export function render() {
     <div class="hoy-cab"><p class="saludo">${saludo()}</p><p class="fecha">${fechaLarga(deClave(dia))}</p>${tiraSemana(hoy, dia)}</div>
     ${modo !== 'hoy' ? `<div class="panel otro-dia"><p class="sub">${dia === ayer ? 'Estás viendo ayer. Si faltó anotar un remedio, se puede marcar aquí.' : modo === 'pasado' ? 'Estás viendo un día que ya pasó. Aquí no se puede anotar.' : 'Estás viendo un día que viene. Aquí no se puede anotar.'}</p><button class="btn pri" data-a="verDia" data-dia="${hoy}">${ico('left')}Volver a hoy</button></div>` : ''}
     <div class="hoy-cols">
-      <div class="hoy-resumen">${tarjetaResumen(dia, modo, items, ahoraHM)}
-        <a class="acompana" href="#agenda">${ico('user')}<span>${modo === 'hoy' ? 'Acompaña hoy' : 'Acompaña'}: <b>${acompana ? esc(acompana) : 'sin asignar'}</b></span>${ico('right', 'flecha')}</a></div>
+      <div class="hoy-resumen">${resumenDelDia(dia, modo, items, ahoraHM)}${modo === 'hoy' ? ultimas() : ''}</div>
       ${bloqueLineaDia(dia, modo, ahoraHM, anotable, items)}
-      <div class="hoy-ultimas"><a class="btn sec" href="#agenda/cuidados">${ico('info')}Actividades y cuidados</a><a class="btn quieto" href="#corazon">${ico('heart')}Mi corazón</a>${modo === 'hoy' ? ultimas() : ''}${instalar}</div>
+      <div class="hoy-ultimas"><a class="btn sec" href="#agenda/cuidados">${ico('info')}Actividades y cuidados</a><a class="btn quieto" href="#corazon">${ico('heart')}Mi corazón</a><a class="acompana" href="#agenda">${ico('user')}<span>${modo === 'hoy' ? 'Acompaña hoy' : 'Acompaña'}: <b>${acompana ? esc(acompana) : 'sin asignar'}</b></span>${ico('right', 'flecha')}</a>${instalar}</div>
     </div>
   </div>`;
 }

@@ -3,6 +3,7 @@
 import { estado, acciones, pintar, esAdmin, esJuan, aviso } from '../nucleo.js';
 import { esc, ico, val, porId, idAzar, fechaCorta } from '../util.js';
 import * as db from '../db.js';
+import { infografia } from '../visuales.js';
 
 export const tituloCuidados = 'Actividades y cuidados';
 
@@ -55,6 +56,7 @@ export function resumenCuidadosPortada() {
   const aut = items.filter((x) => x.estado === 'autorizado').map((x) => x.actividad).concat(lineas(c.puede));
   const cons = items.filter((x) => x.estado === 'consultar').map((x) => x.actividad).concat(lineas(c.preguntas));
   const evit = items.filter((x) => x.estado === 'evitar').map((x) => x.actividad).concat(lineas(c.evitar));
+  if (esJuan()) return `<section class="panel juan-seccion juan-acceso" aria-label="Actividades y cuidados"><div class="cabeza"><span class="ic">${ico('leaf')}</span><div><h2 class="h3">Mis actividades y cuidados</h2><p class="sub">${tienePautaPersonal(c) ? 'Consulta tu pauta antes de avanzar.' : 'Falta cargar tu pauta médica.'}</p></div></div>${evit.length ? `<p class="sub"><b>Evitar por ahora:</b> ${evit.slice(0,2).map(esc).join(' · ')}${evit.length > 2 ? ' · ver todas en la pauta' : ''}</p>` : ''}<a class="btn sec" href="#agenda/cuidados">${ico('leaf')}Ver mis indicaciones</a></section>`;
 
   if (!tienePautaPersonal(c)) {
     return `<section class="panel juan-seccion" aria-label="Actividades y cuidados">
@@ -205,10 +207,26 @@ function editorCuidados(c) {
   </div>`;
 }
 
+function cuidadosVisualesJuan(c) {
+  const items = Array.isArray(c.items) ? c.items : [];
+  const campos = { autorizado: 'puede', evitar: 'evitar', consultar: 'preguntas' };
+  return `<div class="envoltura juan-visual"><a class="btn quieto izq" href="#hoy">${ico('left')}Volver a Hoy</a>
+    <h2 class="h2">Mis actividades y cuidados</h2>
+    ${!tienePautaPersonal(c) ? '<p class="nota aviso-info">Falta cargar tu pauta médica. Consulta a tu equipo antes de aumentar el esfuerzo.</p>' : ''}
+    ${GRUPOS.map(([k,t,cls,icon]) => {
+      const grupo=items.filter(x=>(x.estado||'consultar')===k), texto=c[campos[k]];
+      return `<details class="panel comida-menu" data-k="juan-cuidados-${k}"${k==='evitar' && (grupo.length||texto)?' open':''}><summary>${ico(icon)}${esc(t)}</summary>${grupo.map(tarjetaActividadPersonal).join('')}${texto?`<ul class="lista-cuidado-texto">${listaHtml(texto)}</ul>`:''}${!grupo.length&&!texto?'<p class="sub">Todavía sin indicaciones anotadas.</p>':''}${k==='autorizado'&&c.limites?`<p class="tit">Límites de la pauta</p><ul class="lista-cuidado-texto">${listaHtml(c.limites)}</ul>`:''}</details>`;
+    }).join('')}
+    ${c.fuente?`<p class="nota">${esc(c.fuente)}${c.fecha?' · '+esc(c.fecha):''}</p>`:''}
+    ${infografia('actividad')}
+  </div>`;
+}
+
 export function cuidados(modo) {
   const c = (estado.config && estado.config.cuidados) || {};
   const editar = modo === 'editar' && esAdmin();
   if (editar) return editorCuidados(c);
+  if (esJuan()) return cuidadosVisualesJuan(c);
 
   const items = Array.isArray(c.items) ? c.items : [];
   const hayPauta = tienePautaPersonal(c);

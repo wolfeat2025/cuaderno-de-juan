@@ -181,6 +181,10 @@ textarea.texto { resize: none; line-height: 1.35; }
 .resumen-dia.amb { background: var(--amb-soft); box-shadow: inset 0 0 0 2px var(--amb); }
 .resumen-dia.amb .tit { color: var(--amb-ink); }
 .resumen-dia.ok .tit { color: var(--acc-ink); }
+.resumen-dia.ok { background: var(--acc-soft); }
+.resumen-dia.alerta { background: var(--red-soft); box-shadow: inset 0 0 0 2px var(--red); }
+.resumen-dia.alerta .tit { color: var(--red-ink); }
+.celda .cuando { font-size: 16px; color: var(--ink2); }
 .anillo { width: 60px; height: 60px; flex: none; }
 .anillo .pista { fill: none; stroke: var(--bg2); stroke-width: 7; }
 .anillo .avance { fill: none; stroke: var(--acc); stroke-width: 7; stroke-linecap: round; }
@@ -437,6 +441,15 @@ textarea.texto { resize: none; line-height: 1.35; }
 .ic.tipo { background: var(--t-soft); color: var(--t-ink); }
 
 .comida-card { gap: 12px; }
+.comida-menu { border-top: 1px solid var(--rule); }
+.comida-menu summary { min-height: 48px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 16px; font-weight: 700; color: var(--ink2); }
+.comida-menu summary::before { content: '+'; font-size: 22px; }
+.comida-menu[open] summary::before { content: '−'; }
+.comida-menu summary::-webkit-details-marker { display: none; }
+.comida-menu .bloque { margin-bottom: 12px; }
+.consulta-comida { border: 1px solid var(--rule); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.consulta-comida ul { padding-left: 22px; font-size: 17px; }
+.consulta-comida li + li { margin-top: 6px; }
 .bloque { display: flex; flex-direction: column; gap: 6px; }
 .porciones { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .porciones li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; background: var(--bg2); border-radius: 14px; font-size: 19px; }
@@ -566,7 +579,7 @@ textarea.texto { resize: none; line-height: 1.35; }
 /* ---------- Línea de tiempo compactable, recordatorio de Medir, Comidas y Perfil de Juan ---------- */
 .linea-bloque { display: flex; flex-direction: column; gap: 8px; }
 .linea-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.btn-compactar { min-height: 48px; padding: 0 14px; border: 2px solid var(--rule); background: var(--sup); color: var(--ink); font-size: 17px; font-weight: 800; }
+.btn-compactar { min-height: 56px; padding: 0 14px; border: 2px solid var(--rule); background: var(--sup); color: var(--ink); font-size: 17px; font-weight: 800; }
 .grupo-hechos-caja { display: flex; flex-direction: column; gap: 6px; }
 .btn-hechos-dia { width: 100%; border: 0; text-align: left; }
 .hechos-compactos { padding: 4px 0 6px; border-bottom: 1px dashed var(--rule); }
@@ -574,7 +587,7 @@ textarea.texto { resize: none; line-height: 1.35; }
 .linea.compacta .tarjeta-fila .ic { width: 34px; height: 34px; border-radius: 10px; }
 .linea.compacta .tarjeta-fila .tit { font-size: 18px; }
 .linea.compacta .tarjeta-fila .sub, .linea.compacta .tarjeta-fila .firma { font-size: 16px; }
-.linea.compacta .hora { padding-top: 14px; font-size: 15px; }
+.linea.compacta .hora { padding-top: 14px; font-size: 16px; }
 .linea.compacta .nodo { top: 16px; width: 12px; height: 12px; margin-left: -6px; }
 
 .recordatorio-medir { gap: 10px; }
@@ -661,6 +674,85 @@ textarea.texto { resize: none; line-height: 1.35; }
 }
 
 /* ---------- Impresión / Guardar como PDF: solo el reporte, en fondo claro ---------- */
+/* Juan: mismas superficies y colores; lectura grande y explicación por conceptos. */
+.juan-cabecera { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.juan-cabecera .fecha { flex: 1 1 100%; font-size: 22px; }
+.juan-cabecera details { flex: 1 1 100%; }
+.juan-estado-visual { display: flex; align-items: center; gap: 14px; }
+.juan-aro { width: 64px; height: 64px; flex: none; position: relative; color: var(--ink2); }
+.juan-aro svg:not(.ico) { width: 100%; height: 100%; }
+.juan-aro .ico { position: absolute; width: 28px; height: 28px; left: 18px; top: 18px; }
+.ja-fondo,.ja-orbita { fill: none; stroke-width: 5; }
+.ja-fondo { stroke: var(--rule); }
+.ja-orbita { stroke: currentColor; stroke-dasharray: 60 148; transform-origin: 40px 40px; animation: juan-orbita 12s linear infinite; }
+.verde .juan-aro { color: var(--acc-ink); }
+.amarillo .juan-aro { color: var(--amb-ink); }
+.rojo .juan-aro { color: var(--red-ink); }
+.juan-reg-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.juan-lectura { display: flex; flex-direction: column; gap: 5px; padding: 12px; background: var(--bg2); border-radius: 16px; min-width: 0; }
+.juan-lectura .v-grande { font-size: 30px; overflow-wrap: anywhere; }
+.juan-lectura .v-grande small { display: block; font-size: 16px; }
+.juan-lectura .rotulo-item { font-size: 18px; }
+.juan-lectura:last-child:nth-child(odd) { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; align-items: center; }
+.juan-lectura:last-child:nth-child(odd) .v-grande { grid-row: 2 / span 2; }
+.juan-vitales .comida-menu summary { min-height: 44px; }
+.juan-visual .comida-menu summary { min-height: 56px; font-size: 19px; }
+.juan-comidas .titulo-fila .h3 { display: flex; gap: 8px; align-items: center; }
+.cv-infografia { gap: 14px; }
+.cv-conceptos { display: flex; gap: 6px; flex-wrap: wrap; }
+.cv-concepto { flex: 1 1 90px; min-height: 56px; padding: 10px 8px; border: 2px solid var(--rule); border-radius: 16px; background: var(--sup); color: var(--ink); font: inherit; font-size: 17px; font-weight: 800; }
+.cv-concepto.sel { border-color: var(--acc); background: var(--acc-soft); color: var(--acc-ink); }
+.cv-lamina { display: flex; flex-direction: column; gap: 10px; }
+.cv-lamina h2 { font-size: 25px; line-height: 1.2; }
+.cv-lamina .grande { font-size: 20px; }
+.cv-escena { display: block; width: 100%; height: auto; max-width: 480px; margin: auto; }
+.cv-fondo { fill: var(--bg2); }
+.cv-halo { fill: var(--acc-soft); }
+.cv-cuerpo { fill: var(--ros-ink); }
+.cv-relieve { stroke: var(--sup); stroke-width: 3; fill: none; opacity: .55; }
+.cv-vaso { fill: var(--azu-ink); }
+.cv-coronaria { fill: none; stroke: var(--amb); stroke-width: 3; stroke-linecap: round; }
+.cv-organo { transform-origin: 177px 95px; animation: juan-flotar 6s ease-in-out infinite; }
+.cv-orbita,.cv-camino { fill: none; stroke: var(--acc); stroke-width: 3; stroke-dasharray: 5 8; }
+.cv-flujo { stroke: var(--acc); stroke-width: 5; stroke-dasharray: 10 25; fill: none; animation: juan-flujo 5s linear infinite; }
+.cv-apoyo { fill: var(--sup); stroke: var(--acc-ink); stroke-width: 3; }
+.cv-apoyo path { fill: none; }
+.cv-paso circle { fill: var(--acc); }
+.cv-paso path { fill: none; stroke: var(--on-acc); stroke-width: 3; }
+.cv-persona { fill: var(--ink2); stroke: var(--ink2); stroke-width: 6; stroke-linecap: round; }
+.cv-persona path { fill: none; }
+.cv-p1,.cv-p2,.cv-p3 { animation: juan-apoyo 6s ease-in-out infinite; }
+.cv-p2 { animation-delay: -4s; }.cv-p3 { animation-delay: -2s; }
+.cv-tubo-ext { stroke: var(--ros-ink); stroke-width: 66; fill: none; stroke-linecap: round; }
+.cv-tubo-int { stroke: var(--sup); stroke-width: 46; fill: none; stroke-linecap: round; }
+.cv-nodo { fill: var(--ros-ink); }
+.cv-cubos,.cv-glucosa { fill: var(--amb); }
+.cv-glucosa { animation: juan-transito 5s ease-in-out infinite; }
+.cv-union { fill: none; stroke: var(--ink2); stroke-width: 3; stroke-linecap: round; }
+.cv-salero { fill: var(--sup); stroke: var(--ink2); stroke-width: 3; }
+.cv-reloj { fill: var(--sup); stroke: var(--rule); stroke-width: 3; }
+.cv-escala { fill: none; stroke: var(--azu-ink); stroke-width: 9; stroke-linecap: round; }
+.cv-aguja { stroke: var(--ink); stroke-width: 5; stroke-linecap: round; transform-origin: 236px 97px; animation: juan-aguja 7s ease-in-out infinite; }
+.cv-eje { fill: var(--ink); }.cv-placa { fill: var(--amb); }
+.cv-loza { fill: var(--sup); stroke: var(--rule); stroke-width: 3; }
+.cv-verde { fill: var(--acc); }.cv-prote { fill: var(--azu-ink); }.cv-carbo { fill: var(--amb); }
+.cv-linea-plato { fill: none; stroke: var(--sup); stroke-width: 4; }.cv-brote { fill: var(--sup); opacity: .65; }
+.cv-controles { display: flex; flex-wrap: wrap; gap: 8px; }
+.cv-controles .mini-btn { flex: 1 1 90px; justify-content: center; min-height: 56px; font-size: 17px; }
+.cv-aclaracion { font-size: 16px; }
+.nutri-totales { display: flex; flex-direction: column; gap: 8px; }
+.nutri-totales p { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.nutri-item { display: flex; gap: 8px; align-items: center; }
+.nutri-item > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.nutri-item .mini-btn { min-height: 56px; }
+.cv-pausada * { animation-play-state: paused !important; }
+@keyframes juan-orbita { to { transform: rotate(360deg); } }
+@keyframes juan-flotar { 50% { transform: translateY(-4px); } }
+@keyframes juan-flujo { to { stroke-dashoffset: -70; } }
+@keyframes juan-apoyo { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+@keyframes juan-transito { 50% { transform: translateX(16px); } }
+@keyframes juan-aguja { 50% { transform: rotate(15deg); } }
+@media (prefers-reduced-motion: reduce) { .cv-infografia *, .ja-orbita { animation: none !important; } }
 @page { size: A4; margin: 14mm 12mm; }
 @media print {
   html { font-size: 11pt; }

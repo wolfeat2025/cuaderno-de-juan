@@ -5,9 +5,14 @@ import { esc, ico, val, porId, claveFecha, deClave, hhmm, fechaLarga, DIAS, DIAS
 import { GUIA, COLACIONES, colacionesDe } from '../datos.js';
 import { itemsDelDia, sinSubir } from '../plan.js';
 import { SECCIONES_GUIA, GUIA_COMIDAS, PARTES_PLATO, platoGrande, dibujoPlatoCorazon, PASOS_COMIDA_CORAZON, FUENTES_COMIDA_CORAZON } from '../guias.js';
+import { consultarComida } from '../alimentos.js';
+import { resultadoConsulta } from './consulta-comida.js';
+import { infografia } from '../visuales.js';
+import * as nutricion from './nutricion.js';
 
 const COMIO = { todo: 'Comió todo', parte: 'Comió una parte', nada: 'No comió' };
 const HORA_OK = /^([01]\d|2[0-3]):[0-5]\d$/;
+const PREGUNTA_COMIDA = { desayuno: '¿Qué desayunó hoy?', almuerzo: '¿Qué almorzó hoy?', once: '¿Qué comió en la once?', cena: '¿Qué cenó hoy?' };
 const volver = `<a class="btn quieto izq" href="#comidas">${ico('left')}Volver a Comidas</a>`;
 const lineas = (t) => String(t || '').split('\n').map((x) => x.trim()).filter(Boolean);
 
@@ -20,6 +25,7 @@ function leerBorrador(id, k) {
   const cNota = porId('otra-' + k), cHora = porId('hora-comida-' + k);
   if (cNota) b.nota = cNota.value;
   if (cHora) b.hora = cHora.value.trim();
+  if (b.consulta && b.consulta.texto !== String(b.nota || '').trim()) delete b.consulta;
   return b;
 }
 function sincronizarBorradoresEnVivo() {
@@ -30,15 +36,17 @@ function sincronizarBorradoresEnVivo() {
 function editorComida(it, reg, hoy) {
   const b = borradores()[it.id] || { k: it.k, fecha: reg ? reg.fecha : hoy, modo: reg ? 'editar' : 'otra', nota: (reg && reg.nota) || '', comio: (reg && reg.comio) || '', cuando: reg ? 'temprano' : '', hora: reg ? hhmm(new Date(reg.ts)) : '' };
   borradores()[it.id] = b;
-  const fechaTxt = `${b.fecha === hoy ? 'Hoy, ' : ''}${fechaLarga(deClave(b.fecha)).toLowerCase()} (${b.fecha})`;
+  const fechaTxt = `${b.fecha === hoy ? 'Hoy · ' : ''}${fechaLarga(deClave(b.fecha)).toLowerCase()}`;
   const esOtra = b.modo === 'otra';
   return `<div class="editor-comida" data-k="ed-${it.id}">
-    <p class="rotulo">${ico('edit')}${reg ? 'Corregir registro de comida' : 'Comió otra cosa'}</p>
-    <p class="nota">Fecha asociada: <b>${esc(fechaTxt)}</b></p>
+    <p class="rotulo">${ico('edit')}${reg ? 'Corregir comida' : 'Anotar comida'}</p>
+    <p class="nota">${esc(fechaTxt)}</p>
     <div class="campo">
-      <label for="otra-${it.k}">${esOtra ? '¿Qué comió en vez de lo previsto?' : '¿Qué comió? (opcional si fue el menú del día)'}</label>
-      <input class="texto" id="otra-${it.k}" value="${esc(b.nota)}" placeholder="Ej: sopa de pollo con verduras" maxlength="100" autocomplete="off" data-c="actualizarBorradorComida" data-id="${it.id}" data-k="${it.k}">
+      <label for="otra-${it.k}">${esJuan() ? '¿Qué comiste?' : esOtra ? (PREGUNTA_COMIDA[it.k] || '¿Qué comió en la colación?') : '¿Qué comió? (vacío si fue el menú)'}</label>
+      <input class="texto" id="otra-${it.k}" value="${esc(b.nota)}" placeholder="Ej: sopa de pollo con verduras" maxlength="100" autocomplete="off" data-c="actualizarBorradorComida" data-i="actualizarBorradorComida" data-id="${it.id}" data-k="${it.k}">
+      <button type="button" class="btn quieto" data-a="consultarAlimentos" data-id="${it.id}" data-k="${it.k}">${ico('info')}Consultar alimentos</button>
     </div>
+    ${resultadoConsulta(b, it.porciones)}
     <div class="grupo">
       <p class="rotulo">¿Cuánto comió?</p>
       <div class="opciones">${[['todo', 'Todo'], ['parte', 'Una parte'], ['nada', 'Nada']].map(([v, n]) => `<button type="button" class="opcion${b.comio === v ? ' sel' : ''}" data-a="elegirCantComida" data-id="${it.id}" data-k="${it.k}" data-v="${v}" aria-pressed="${b.comio === v ? 'true' : 'false'}">${n}</button>`).join('')}</div>
@@ -51,7 +59,7 @@ function editorComida(it, reg, hoy) {
       </div>
       ${b.cuando === 'temprano' ? `<div class="campo"><label for="hora-comida-${it.k}">Hora en que comió</label><input class="texto" id="hora-comida-${it.k}" type="time" value="${esc(b.hora)}" data-c="actualizarBorradorComida" data-id="${it.id}" data-k="${it.k}"></div>` : ''}
     </div>
-    ${it.k === 'almuerzo' ? `<p class="nota">${ico('info')}Esta es la hora en que comió. Para calcular las 2 horas de la glicemia se usa únicamente la hora confirmada en que empezó a almorzar (se pregunta en Medir).</p>` : ''}
+    ${it.k === 'almuerzo' ? `<p class="nota">La hora de inicio del almuerzo para medir el azúcar se confirma en Medir.</p>` : ''}
     ${b.error ? `<p class="error" role="alert">${ico('alert')}${esc(b.error)}</p>` : ''}
     <div class="dos">
       <button type="button" class="btn pri" data-a="guardarComidaForm" data-id="${it.id}" data-k="${it.k}">${ico('check')}Guardar comida</button>
@@ -87,32 +95,30 @@ function tarjetaComida(it, ahoraHM, hoy) {
         <button type="button" class="btn quieto auto" data-a="quitarComida" data-id="${it.id}">${ico('undo')}Cambiar</button>
       </div></div>`;
   } else if (!it.opcional && it.hora > ahoraHM) {
-    registro = `<p class="sub">Se anota desde las ${it.hora}.</p>
-      <button type="button" class="btn quieto" data-a="otraComida" data-id="${it.id}" data-k="${it.k}">${ico('edit')}Comió otra cosa o más temprano</button>`;
+    registro = '<p class="nota">Si comió más temprano, anótalo arriba.</p>';
   } else {
-    registro = `<p class="rotulo">${esJuan() ? '¿Qué comiste?' : '¿Qué comió?'}</p>
-      <div class="opciones">${[['todo', 'Todo'], ['parte', 'Una parte'], ['nada', 'Nada']].map(([v, n]) => `<button type="button" class="opcion" data-a="anotarComida" data-id="${it.id}" data-k="${it.k}" data-v="${v}">${n}</button>`).join('')}</div>
-      <div class="dos">
-        <button type="button" class="btn quieto" data-a="otraComida" data-id="${it.id}" data-k="${it.k}">${ico('edit')}Comió otra cosa</button>
-        <button type="button" class="btn quieto" data-a="editarComida" data-id="${it.id}" data-k="${it.k}">${ico('clock')}Fue más temprano</button>
-      </div>`;
+    registro = `<p class="rotulo">${esJuan() ? 'Si comiste este menú' : 'Si comió este menú'}</p>
+      <div class="opciones">${[['todo', 'Todo'], ['parte', 'Una parte'], ['nada', 'Nada']].map(([v, n]) => `<button type="button" class="opcion" data-a="anotarComida" data-id="${it.id}" data-k="${it.k}" data-v="${v}">${n}</button>`).join('')}</div>`;
   }
+  const menu = `<details class="comida-menu" data-k="menu-${it.id}"><summary>Ver menú orientativo y porción</summary>
+    ${estado.config.menuEsEjemplo ? '<p class="nota">Menú de ejemplo.</p>' : ''}
+    <div class="bloque"><p class="rotulo">Menú previsto</p><p class="sub grande">${esc(it.texto)}</p></div>
+    <div class="bloque"><p class="rotulo">Porción indicada</p>${servir}</div>
+    ${!b && !reg ? `<div class="bloque">${registro}</div>` : ''}</details>`;
   return `<div class="panel comida-card" data-k="${it.id}">
     <div class="titulo-fila"><div class="cabeza"><span class="ic comida">${ico(it.icono)}</span><p class="h3">${it.nombre}</p>${it.opcional ? '<span class="chip neutro">Opcional</span>' : ''}</div><span class="chip neutro">${it.hora}</span></div>
-    ${it.opcional ? '<p class="nota">Hora orientativa. Si no corresponde, no hace falta registrarla.</p>' : ''}
-    <div class="bloque"><p class="rotulo">Qué preparar</p><p class="sub grande">${esc(it.texto)}</p></div>
-    <div class="bloque"><p class="rotulo">Cuánto servir</p>${servir}</div>
-    <div class="bloque">${registro}</div></div>`;
+    ${b || reg ? `<div class="bloque">${registro}</div>` : `<button type="button" class="btn sec" data-a="otraComida" data-id="${it.id}" data-k="${it.k}">${ico('edit')}${esJuan() ? '¿Qué comiste?' : PREGUNTA_COMIDA[it.k] || 'Anotar colación'}</button>`}
+    ${menu}</div>`;
 }
 
 function bloqueCuidadoComidas() {
   const u = estado.ui, abierto = !!u.porQueComida;
+  if (esJuan()) return `<div class="panel cuidado"><div class="comida-hero">${dibujoPlatoCorazon()}<h2 class="h3">Comer bien cuida tu corazón</h2></div><button class="btn sec" data-a="alternarPorQueComida" aria-expanded="${abierto}">${ico('info')}${abierto?'Cerrar explicación':'¿Por qué importa?'}</button>${abierto?infografia('comida'):''}</div>`;
   return `<div class="panel cuidado comida-encabezado" data-k="comida-cab-${u.comidaAnimVez || 0}">
     <div class="comida-hero">
       ${dibujoPlatoCorazon()}
       <div class="comida-hero-txt">
         <p class="h3">Comer bien también cuida tu corazón.</p>
-        <p class="sub">Ilustración educativa general. Las porciones personales dependen de la nutricionista.</p>
       </div>
     </div>
     <div class="comida-hero-acc">
@@ -135,22 +141,25 @@ function bloqueCuidadoComidas() {
 }
 
 function principal() {
-  const c = estado.config, hoy = claveFecha(estado.ahora), ahoraHM = hhmm(estado.ahora);
+  const hoy = claveFecha(estado.ahora), ahoraHM = hhmm(estado.ahora);
   const comidas = itemsDelDia(hoy).filter((i) => i.tipo === 'comida');
+  if (esJuan()) return `<div class="envoltura juan-comidas">${bloqueCuidadoComidas()}<h2 class="h2">Mis comidas de hoy</h2>${comidas.map(it=>{
+    const reg=estado.tomas[it.id];
+    return `<section class="panel"><div class="titulo-fila"><h3 class="h3">${ico(it.icono)}${esc(it.nombre)}</h3><span class="chip neutro">${it.opcional?'Opcional':it.hora}</span></div>${reg?`<p class="tit">${esc(reg.nota||reg.previsto||it.texto)}</p><p class="firma">${COMIO[reg.comio]||'Anotado'} · ${hhmm(new Date(reg.ts))}</p><p class="nota">Anotó ${esc(reg.quien)}${sinSubir(reg)?' · sin subir':''}</p>`:'<p class="sub">Todavía no está anotado.</p>'}<details class="comida-menu"><summary>Ver la pauta de esta comida</summary><p class="sub">${esc(it.texto)}</p>${estado.config.menuEsEjemplo?'<p class="nota">Menú de ejemplo.</p>':''}<p class="nota">${esc(it.porciones||'Porción pendiente de indicar.')}</p></details></section>`;
+  }).join('')}<a class="btn sec" href="#comidas/guia">${ico('food')}Ideas para cuidarme</a><p class="nota">La familia anota y corrige tus comidas desde sus perfiles.</p></div>`;
   const faltan = estado.compras.filter((i) => !i.comprado).length;
   const op = (ruta, icono, t, s) => `<a class="opcion-aj" href="#${ruta}"><span class="ic comida">${ico(icono)}</span><span class="info"><span class="tit">${t}</span><span class="sub">${s}</span></span>${ico('right')}</a>`;
   return `<div class="envoltura">
     ${bloqueCuidadoComidas()}
     <div class="titulo-fila"><p class="h2">Comidas de hoy</p><span class="chip neutro">${mayus(DIAS[estado.ahora.getDay()])}</span></div>
-    ${c.menuEsEjemplo ? `<p class="nota aviso-ej">${ico('info')}Menú de ejemplo: ajustar con la nutricionista.</p>` : ''}
     ${comidas.length ? comidas.map((it) => tarjetaComida(it, ahoraHM, hoy)).join('') : '<p class="vacio-txt">No hay menú anotado para hoy.</p>'}
     <div class="lista-aj">
+      ${op('comidas/consulta', 'info', 'Revisar una comida', 'Ingredientes, cantidades y pauta')}
       ${esAdmin() ? op('comidas/colaciones', 'clock', 'Organizar colaciones', 'Opcionales, horarios e indicaciones') : ''}
       ${op('comidas/compras', 'cart', 'Lista de compras', faltan ? `${faltan} por comprar` : 'Nada pendiente')}
       ${op('comidas/guia', 'info', 'Guía de comidas y plato', 'Desayuno, almuerzo, once y colaciones')}
       ${esAdmin() ? op('ajustes/menu', 'edit', 'Editar el menú y las porciones', 'Menú de la semana') : ''}
     </div>
-    <p class="nota">Anotar lo que comió describe lo que pasó. No es una calificación.</p>
   </div>`;
 }
 
@@ -194,7 +203,7 @@ function compras() {
   </div>`;
 }
 
-export function render(args) { return args[0] === 'colaciones' ? organizarColaciones() : args[0] === 'compras' ? compras() : args[0] === 'guia' ? guia(args[1]) : principal(); }
+export function render(args) { return args[0] === 'consulta' ? nutricion.render() : args[0] === 'colaciones' ? organizarColaciones() : args[0] === 'compras' ? compras() : args[0] === 'guia' ? guia(args[1]) : principal(); }
 export const titulo = (args) => (args[0] === 'colaciones' ? 'Colaciones' : args[0] === 'compras' ? 'Compras' : args[0] === 'guia' ? 'Guía' : 'Comidas');
 
 acciones.verPlato = () => { estado.ui.platoVez = (estado.ui.platoVez || 0) + 1; pintar(); };
@@ -220,7 +229,17 @@ function abrirEditorComida(d, modo) {
 }
 acciones.otraComida = (d) => abrirEditorComida(d, 'otra');
 acciones.editarComida = (d) => abrirEditorComida(d, 'editar');
-acciones.actualizarBorradorComida = (d) => { leerBorrador(d.id, d.k); };
+acciones.actualizarBorradorComida = (d) => {
+  const anterior = borradores()[d.id], habiaConsulta = anterior && anterior.consulta;
+  const b = leerBorrador(d.id, d.k);
+  if (habiaConsulta && b && !b.consulta) pintar();
+};
+acciones.consultarAlimentos = (d) => {
+  const b = leerBorrador(d.id, d.k); if (!b) return;
+  const texto = String(b.nota || '').trim();
+  if (!texto) { b.error = 'Escribe qué comió para consultar los alimentos.'; pintar(); porId('otra-' + d.k).focus(); return; }
+  b.error = ''; b.consulta = { texto, resultado: consultarComida(texto) }; pintar();
+};
 acciones.elegirCantComida = (d) => { const b = leerBorrador(d.id, d.k); if (!b) return; b.comio = d.v; b.error = ''; pintar(); };
 acciones.cuandoComida = (d) => {
   const b = leerBorrador(d.id, d.k); if (!b) return;

@@ -4,6 +4,7 @@ import { estado, acciones, pintar, aviso, esAdmin, esJuan } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, porId, claveFecha, deClave, hhmm, fechaCorta, fechaLarga, DIAS, MESES, mayus } from '../util.js';
 import { TIPOS, ETIQUETA, clasificar, valorTexto, detalleMomento } from '../datos.js';
+import { infografia } from '../visuales.js';
 
 export const ESTUDIOS_BASE = [
   {
@@ -150,6 +151,7 @@ function datosCorazon() {
 
 // Tarjeta para la portada de Juan (punto 5: Entender mi corazón).
 export function resumenCorazonPortada() {
+  if (esJuan()) return `<section class="panel juan-seccion juan-acceso" aria-label="Entender mi corazón"><div class="cabeza"><span class="ic">${ico('heart')}</span><div><h2 class="h3">Entender mi corazón</h2><p class="sub">Mira, escucha y avanza a tu ritmo.</p></div></div><a class="btn pri" href="#corazon">${ico('right')}Ver la explicación</a><a class="btn quieto" href="#corazon/recuperacion">Mi recuperación${ico('right')}</a></section>`;
   const d = datosCorazon();
   const conDato = d.estudios.filter((e) => e.origen !== 'pendiente');
   const faltanDoc = d.estudios.filter((e) => e.origen !== 'documento');
@@ -415,10 +417,26 @@ function editorCorazon() {
   </div>`;
 }
 
+function vistaVisualJuan(sub, d) {
+  return `<div class="envoltura corazon-vista juan-visual">
+    <a class="btn quieto izq" href="#hoy">${ico('left')}Volver a Hoy</a>
+    ${infografia('corazon', sub === 'recuperacion' ? 2 : 0)}
+    <details class="panel comida-menu" data-k="informes-visuales"${sub === 'sabemos' || sub === 'falta' ? ' open' : ''}><summary>Mis registros e informes</summary>
+      ${d.resumenGeneral ? `<p class="sub grande">${esc(d.resumenGeneral)}</p>` : '<p class="sub">Aquí puedes ver los estudios anotados y los que faltan.</p>'}
+      ${bloqueRegistrosCasa()}${bloqueInformes(d, sub === 'falta' ? 'falta' : 'todo')}
+    </details>
+    <details class="panel comida-menu" data-k="recuperacion-detalle"><summary>Etapas y próximos controles</summary>${bloqueMapaRecuperacion()}</details>
+    <details class="panel comida-menu" data-k="preguntas-detalle"><summary>Preguntas y respuestas</summary>${bloquePreguntasFrecuentes()}</details>
+    <details class="panel comida-menu" data-k="fuentes-detalle"><summary>Fuentes y señales de alarma</summary>${bloqueFuentesGenerales()}</details>
+    <a class="btn sec" href="#agenda/cuidados">${ico('leaf')}Ver mis indicaciones</a>
+  </div>`;
+}
+
 export function render(args) {
   const sub = args && args[0] ? args[0] : 'todo';
   if (sub === 'editar') return editorCorazon();
   const d = datosCorazon();
+  if (esJuan()) return vistaVisualJuan(sub, d);
   const pestanas = [
     ['todo', 'Todo'],
     ['sabemos', '¿Qué sabemos?'],
