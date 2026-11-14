@@ -135,3 +135,39 @@ export const platoGrande = () => `<svg class="plato-g" viewBox="0 0 300 300" rol
   <g class="parte p2"><path class="b" d="M150 150V20a130 130 0 0 1 130 130z"/><text x="208" y="96" text-anchor="middle">Proteínas</text><text class="menor" x="208" y="118" text-anchor="middle">un cuarto</text></g>
   <g class="parte p3"><path class="c" d="M150 150h130a130 130 0 0 1-130 130z"/><text x="208" y="196" text-anchor="middle">Pan, arroz</text><text x="208" y="218" text-anchor="middle">o papa</text><text class="menor" x="204" y="240" text-anchor="middle">un cuarto</text></g>
 </svg>`;
+
+// Dibujo sobrio de plato y corazón para el encabezado de Comidas (ilustración educativa, sin latido en bucle).
+export const dibujoPlatoCorazon = () => `<svg class="plato-corazon" viewBox="0 0 128 68" role="img" aria-label="Ilustración educativa: plato equilibrado y cuidado del corazón">
+  <g class="pc-plato">
+    <circle class="loza" cx="34" cy="34" r="28"/>
+    <path class="a" d="M34 10a24 24 0 0 0 0 48z"/>
+    <path class="b" d="M34 34V10a24 24 0 0 1 24 24z"/>
+    <path class="c" d="M34 34h24a24 24 0 0 1-24 24z"/>
+  </g>
+  <path class="pc-puente" d="M66 34h14" stroke-dasharray="3 3"/>
+  <g class="pc-corazon">
+    <circle class="pc-fondo" cx="98" cy="34" r="24"/>
+    <path class="pc-trazo" d="M98 46.5 87.2 35.8a7.4 7.4 0 0 1 10.8-10.1 7.4 7.4 0 0 1 10.8 10.1z"/>
+  </g>
+</svg>`;
+
+export const PASOS_COMIDA_CORAZON = [
+  ['1. Armar el plato con medida', 'Verduras en la mitad del plato, una proteína magra (pescado, pollo sin piel, legumbres o huevo) y una porción medida de carbohidratos, cocinando con poca sal y sin azúcar añadida.'],
+  ['2. Acompañar el azúcar y la presión', 'Repartir los carbohidratos de forma ordenada ayuda a evitar subidas bruscas de glucosa después de comer, y comer con menos sal apoya el manejo de la presión arterial.'],
+  ['3. Cuidar los vasos sanguíneos a largo plazo', 'Mantener la glucosa, la presión y el colesterol en rango a lo largo de las semanas disminuye la exigencia sobre los vasos sanguíneos y el corazón.'],
+];
+
+export const FUENTES_COMIDA_CORAZON = [
+  {
+    org: 'American Heart Association (AHA)',
+    tema: 'Patrón general de alimentación y estilo de vida cardiovascular',
+    url: 'https://www.heart.org/en/healthy-living/healthy-eating/eat-smart/nutrition-basics/aha-diet-and-lifestyle-recommendations',
+    consulta: 'Consultado el 14 de noviembre de 2026',
+  },
+  {
+    org: 'Centers for Disease Control and Prevention (CDC)',
+    tema: 'Relación entre control de la glucosa, presión arterial y cuidado del corazón',
+    url: 'https://www.cdc.gov/diabetes/diabetes-complications/diabetes-and-your-heart.html',
+    consulta: 'Consultado el 14 de noviembre de 2026',
+  },
+];

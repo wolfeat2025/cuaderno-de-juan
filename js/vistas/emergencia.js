@@ -1,5 +1,5 @@
 // EMERGENCIA: llamar al 131, cómo llegar, datos para la ambulancia y contactos.
-import { estado, esAdmin } from '../nucleo.js';
+import { estado, esAdmin, esJuan } from '../nucleo.js';
 import { esc, ico } from '../util.js';
 
 const lineas = (t) => String(t || '').split('\n').map((x) => x.trim()).filter(Boolean);
@@ -41,16 +41,16 @@ export function render() {
     </div>
 
     <div class="panel">
-      <p class="rotulo rojo">${ico('alert')}Llamen al 131 si tiene</p>
+      <p class="rotulo rojo">${ico('alert')}${esJuan() ? 'Llamar al 131 si tienes' : 'Llamen al 131 si tiene'}</p>
       <ul class="hechos senales">
         <li>${ico('alert')}<span>Dolor o apretón en el pecho que no se pasa en unos minutos</span></li>
         <li>${ico('alert')}<span>Mucha falta de aire</span></li>
-        <li>${ico('alert')}<span>Se desmaya</span></li>
+        <li>${ico('alert')}<span>${esJuan() ? 'Te desmayas o sientes que vas a desmayarte' : 'Se desmaya'}</span></li>
         <li>${ico('alert')}<span>Latidos muy rápidos o desordenados</span></li>
         <li>${ico('alert')}<span>Sudor frío y decaimiento</span></li>
       </ul>
     </div>
-    <p class="nota centro">Esta guía es general. Valen primero las indicaciones de su médico.</p>
+    <p class="nota centro">Esta guía es general. Valen primero las indicaciones de ${esJuan() ? 'tu' : 'su'} médico.</p>
   </div>`;
 }
 

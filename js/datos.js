@@ -1,7 +1,13 @@
 // Valores iniciales y reglas de la app. Nada de esto es consejo médico:
 // los rangos son provisorios y se reemplazan por los del médico en Ajustes.
 
-export const PERSONAS = ['Mamá', 'Fernando', 'Fabián'];
+// Perfiles del selector. Elegir un nombre personaliza la pantalla y firma lo anotado; no es una contraseña.
+export const PERSONAS = ['Mamá', 'Fernando', 'Fabián', 'Coni', 'Juan'];
+// Quienes acompañan y rotan en los turnos. Juan es el paciente: no se asigna como su propio acompañante.
+export const ACOMPANANTES = ['Mamá', 'Fernando', 'Fabián', 'Coni'];
+export const PACIENTE = 'Juan';
+const NOMBRE_PERFIL = { Juan: 'Juan · Papá' };
+export const nombrePerfil = (p) => NOMBRE_PERFIL[p] || p;
 
 export const TIPOS = {
   presion: { nombre: 'Presión', icono: 'gauge', unidad: '', campos: [['Arriba', 50, 260], ['Abajo', 30, 160]] },
@@ -105,7 +111,8 @@ export function configInicial() {
     },
     contactos: [
       { nombre: 'Mamá', telefono: '' }, { nombre: 'Fernando', telefono: '' },
-      { nombre: 'Fabián', telefono: '' }, { nombre: '', telefono: '' },
+      { nombre: 'Fabián', telefono: '' }, { nombre: 'Coni', telefono: '' },
+      { nombre: '', telefono: '' },
     ],
   };
 }
@@ -121,6 +128,14 @@ export function completarConfig(c) {
   out.emergencia = Object.assign({}, b.emergencia, (c && c.emergencia) || {});
   if (!Array.isArray(out.remedios)) out.remedios = [];
   if (!Array.isArray(out.contactos)) out.contactos = b.contactos;
+  else {
+    out.contactos = out.contactos.map((x) => ({ nombre: (x && x.nombre) || '', telefono: (x && x.telefono) || '' }));
+    if (!out.contactos.some((x) => x.nombre.trim().toLowerCase() === 'coni')) {
+      const idxVacio = out.contactos.findIndex((x) => !x.nombre && !x.telefono);
+      if (idxVacio >= 0) out.contactos[idxVacio] = { nombre: 'Coni', telefono: '' };
+      else out.contactos.push({ nombre: 'Coni', telefono: '' });
+    }
+  }
   if (!Array.isArray(out.medirHoras)) out.medirHoras = b.medirHoras;
   return out;
 }

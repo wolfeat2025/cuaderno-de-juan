@@ -409,7 +409,7 @@ textarea.texto { resize: none; line-height: 1.35; }
   .hoy-cab { max-width: 620px; }
   .hoy-cols { display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: auto 1fr; gap: 16px 28px; align-items: start; }
   .hoy-resumen { grid-column: 2; grid-row: 1; }
-  .linea { grid-column: 1; grid-row: 1 / span 2; }
+  .hoy-cols > .linea, .hoy-cols > .linea-bloque { grid-column: 1; grid-row: 1 / span 2; }
   .hoy-ultimas { grid-column: 2; grid-row: 2; position: -webkit-sticky; position: sticky; top: 112px; }
   .ultimas { flex-wrap: wrap; }
   .celda { flex: 1 1 50%; padding: 16px 4px; border-top: 2px solid var(--bg2); }
@@ -562,6 +562,103 @@ textarea.texto { resize: none; line-height: 1.35; }
 .plato-g .p2, .partes-plato .p2 { animation-delay: 1.6s; }
 .plato-g .p3, .partes-plato .p3 { animation-delay: 2.9s; }
 @media (prefers-reduced-motion: reduce) { .plato-g .parte, .partes-plato .parte { animation: none; } }
+
+/* ---------- Línea de tiempo compactable, recordatorio de Medir, Comidas y Perfil de Juan ---------- */
+.linea-bloque { display: flex; flex-direction: column; gap: 8px; }
+.linea-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.btn-compactar { min-height: 48px; padding: 0 14px; border: 2px solid var(--rule); background: var(--sup); color: var(--ink); font-size: 17px; font-weight: 800; }
+.grupo-hechos-caja { display: flex; flex-direction: column; gap: 6px; }
+.btn-hechos-dia { width: 100%; border: 0; text-align: left; }
+.hechos-compactos { padding: 4px 0 6px; border-bottom: 1px dashed var(--rule); }
+.linea.compacta .tarjeta-fila { margin: 2px 0 2px 6px; padding: 7px 10px; border-radius: 16px; gap: 6px 10px; }
+.linea.compacta .tarjeta-fila .ic { width: 34px; height: 34px; border-radius: 10px; }
+.linea.compacta .tarjeta-fila .tit { font-size: 18px; }
+.linea.compacta .tarjeta-fila .sub, .linea.compacta .tarjeta-fila .firma { font-size: 16px; }
+.linea.compacta .hora { padding-top: 14px; font-size: 15px; }
+.linea.compacta .nodo { top: 16px; width: 12px; height: 12px; margin-left: -6px; }
+
+.recordatorio-medir { gap: 10px; }
+.rec-fila { display: flex; align-items: flex-start; gap: 12px; }
+.rec-iconos { display: inline-flex; align-items: center; gap: 4px; padding: 8px 10px; border-radius: 14px; background: var(--sup); color: var(--acc-ink); flex: none; }
+.rec-iconos .ico { width: 22px; height: 22px; }
+
+.comida-encabezado { gap: 12px; }
+.comida-hero { display: flex; align-items: center; gap: 14px; }
+.comida-hero-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.comida-hero-acc { display: flex; flex-wrap: wrap; gap: 8px; }
+.plato-corazon { width: 118px; height: auto; flex: none; }
+.plato-corazon .loza { fill: var(--sup); stroke: var(--rule); stroke-width: 2.5; }
+.plato-corazon .a { fill: var(--acc); }
+.plato-corazon .b { fill: var(--ink2); }
+.plato-corazon .c { fill: var(--amb); }
+.plato-corazon .pc-puente { stroke: var(--acc-ink); stroke-width: 2.5; stroke-linecap: round; }
+.plato-corazon .pc-fondo { fill: var(--sup); stroke: var(--acc-ink); stroke-width: 2; }
+.plato-corazon .pc-trazo { fill: var(--acc); }
+.plato-corazon .pc-plato, .plato-corazon .pc-corazon { transform-origin: center; animation: aparecer 0.45s ease-out both; }
+.plato-corazon .pc-corazon { animation-delay: 0.18s; }
+.comida-explica { display: flex; flex-direction: column; gap: 10px; padding-top: 6px; border-top: 1.5px solid var(--rule); }
+.pasos-visuales { display: flex; flex-direction: column; gap: 8px; }
+.paso-visual { display: flex; align-items: flex-start; gap: 12px; background: var(--sup); padding: 12px 14px; border-radius: 16px; animation: aclarar 0.45s ease-out both; }
+.paso-visual.pv-2 { animation-delay: 0.2s; }
+.paso-visual.pv-3 { animation-delay: 0.4s; }
+.num-paso { width: 32px; height: 32px; border-radius: 50%; background: var(--acc); color: var(--on-acc); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; flex: none; }
+
+.editor-comida { display: flex; flex-direction: column; gap: 12px; padding: 12px; background: var(--bg2); border-radius: 18px; }
+.acciones-reg { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+
+/* ---------- Portada de Juan y secciones explicativas ---------- */
+.juan-portada { gap: 16px; }
+.juan-hola { gap: 10px; }
+.juan-seccion { gap: 12px; }
+.juan-seccion.toca-panel { box-shadow: inset 0 0 0 2.5px var(--amb); }
+.juan-seccion.ok { box-shadow: inset 0 0 0 2px var(--acc); }
+.juan-reg-lista { display: flex; flex-direction: column; gap: 10px; }
+.juan-reg-item { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 18px; background: var(--bg2); }
+.rotulo-item { display: inline-flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 800; color: var(--ink); }
+.juan-reg-valor { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.v-grande { font-size: 36px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.v-grande small { font-size: 18px; font-weight: 700; color: var(--ink2); }
+.juan-toca-principal { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 18px; background: var(--bg2); }
+.juan-siguiente { padding-top: 6px; border-top: 1px solid var(--rule); }
+.juan-cuidados-resumen { display: flex; flex-direction: column; gap: 10px; }
+.juan-cuidado-col { padding: 10px 12px; border-radius: 16px; background: var(--bg2); display: flex; flex-direction: column; gap: 6px; }
+.lista-compacta { padding-left: 22px; font-size: 18px; }
+.lista-compacta li { margin-bottom: 4px; }
+.juan-preguntas-botones { display: flex; flex-direction: column; gap: 8px; }
+
+.dibujo-corazon { display: block; width: 100%; max-width: 380px; height: auto; margin: 4px auto; }
+.dibujo-corazon .dc-caja { fill: var(--sup); stroke: var(--rule); stroke-width: 2; }
+.dibujo-corazon .dc-caja.dc-dest { stroke: var(--acc); stroke-width: 2.5; }
+.dibujo-corazon .dc-union, .dibujo-corazon .dc-riel { stroke: var(--ink2); stroke-width: 2.5; stroke-dasharray: 4 4; }
+.dibujo-corazon text { font-family: inherit; fill: var(--ink); }
+.dibujo-corazon .dc-t1 { font-size: 14px; font-weight: 800; }
+.dibujo-corazon .dc-t2 { font-size: 12px; fill: var(--ink2); font-weight: 700; }
+.dibujo-corazon .dc-etapa circle { fill: var(--sup); stroke: var(--ink2); stroke-width: 2.5; }
+.dibujo-corazon .dc-etapa.activa circle { fill: var(--acc); stroke: var(--acc); }
+.dibujo-corazon .dc-num { font-size: 17px; font-weight: 800; }
+.dibujo-corazon .dc-etapa.activa .dc-num { fill: var(--on-acc); }
+.dibujo-corazon .dc-et-txt { font-size: 13px; font-weight: 800; fill: var(--ink); }
+
+.casa-lecturas, .estudios-lista, .faq-lista, .actividades-cards, .cuidados-lista { display: flex; flex-direction: column; gap: 10px; }
+.casa-lectura, .estudio-card, .faq-card, .actividad-card, .actividad-editor { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 18px; background: var(--bg2); }
+.etapa-card { display: none; flex-direction: column; gap: 8px; padding: 14px; border-radius: 18px; background: var(--bg2); }
+.etapa-card.activa { display: flex; }
+.faq-mas { display: flex; flex-direction: column; gap: 10px; padding-top: 8px; border-top: 1px solid var(--rule); }
+.dibujo-faq { display: block; width: 100%; max-width: 320px; height: auto; }
+.dibujo-faq .df-a { fill: var(--sup); stroke: var(--rule); stroke-width: 2; }
+.dibujo-faq .df-b { fill: var(--acc-soft); stroke: var(--acc); stroke-width: 2; }
+.dibujo-faq text { font-family: inherit; font-size: 13px; font-weight: 800; fill: var(--ink); }
+.dibujo-faq .df-mas { font-size: 18px; fill: var(--acc-ink); }
+.fuentes-caja { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 14px; background: var(--sup); }
+.fuentes-lista { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 17px; }
+.fuentes-lista li { display: flex; flex-direction: column; gap: 2px; }
+.actividad-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 16px; color: var(--ink2); align-items: center; }
+.lista-cuidado-texto { padding-left: 22px; font-size: 19px; }
+.lista-cuidado-texto li { margin-bottom: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .plato-corazon .pc-plato, .plato-corazon .pc-corazon, .paso-visual { animation: none; }
+}
 
 /* ---------- Impresión / Guardar como PDF: solo el reporte, en fondo claro ---------- */
 @page { size: A4; margin: 14mm 12mm; }

@@ -71,6 +71,14 @@ export function sena(codigo) {
 // Solo Fabián ve las opciones de administración. Es para simplificar la app a los demás, no una barrera de seguridad.
 export const ADMIN = 'Fabián';
 export const esAdmin = () => estado.quien === ADMIN;
+// Perfil de Juan: la misma información, presentada para consultar y entender. Tampoco es una barrera de seguridad.
+export const esJuan = () => estado.quien === 'Juan';
+// Texto según quién mira: en el perfil de Juan se le habla a él; en los demás, se habla de él.
+export const tu = (paraJuan, paraFamilia) => (esJuan() ? paraJuan : paraFamilia);
+
+// Línea de tiempo compacta: preferencia de cada perfil en este aparato (no cambia la vista de la familia).
+export const compacto = () => { const v = leerLocal('cj_compacto_' + estado.quien); return v === null ? esJuan() : v === '1'; };
+export const fijarCompacto = (si) => guardarLocal('cj_compacto_' + estado.quien, si ? '1' : '0');
 
 // ---- Apariencia: Automático (sigue al iPhone), Claro u Oscuro. Se recuerda en cada teléfono. ----
 export const temaElegido = () => { const t = leerLocal('cj_tema'); return t === 'claro' || t === 'oscuro' ? t : 'auto'; };

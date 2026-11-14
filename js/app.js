@@ -1,10 +1,12 @@
 // El cuaderno de Juan — arranque, navegación y armazón de la app.
 import { firebaseConfig } from './config.js';
 import * as db from './db.js';
-import { estado, acciones, fijarPintar, pintar, ir, aviso, ejecutarDeshacer, guardarLocal, leerLocal, aplicarTema, sena, APARATO } from './nucleo.js';
+import { estado, acciones, fijarPintar, pintar, ir, aviso, ejecutarDeshacer, guardarLocal, leerLocal, aplicarTema, sena, APARATO, esJuan } from './nucleo.js';
 import { esc, ico, igualar, porId, val, claveFecha, sumarDias, lunesDe, idAzar } from './util.js';
-import { PERSONAS, completarConfig, configInicial } from './datos.js';
+import { PERSONAS, nombrePerfil, completarConfig, configInicial } from './datos.js';
 import * as hoy from './vistas/hoy.js';
+import * as portada from './vistas/portada.js';
+import * as corazon from './vistas/corazon.js';
 import * as medir from './vistas/medir.js';
 import * as comidas from './vistas/comidas.js';
 import * as agenda from './vistas/agenda.js';
@@ -20,7 +22,9 @@ const sufijoEmu = EMULADOR ? '&emu=1' : '';
 if (EMULADOR) window.__estado = estado;   // solo para las pruebas locales
 
 const VISTAS = {
-  hoy: { render: hoy.render, titulo: () => 'Hoy', pestana: 'hoy' },
+  // Juan ve su propia portada en Hoy: los mismos datos de la familia, ordenados para consultar.
+  hoy: { render: (args) => (esJuan() ? portada.render(args) : hoy.render(args)), titulo: () => 'Hoy', pestana: 'hoy' },
+  corazon: { render: corazon.render, titulo: corazon.titulo, pestana: 'hoy' },
   medir: { render: medir.render, titulo: medir.titulo, pestana: 'medir' },
   comidas: { render: comidas.render, titulo: comidas.titulo, pestana: 'comidas' },
   agenda: { render: agenda.render, titulo: agenda.titulo, pestana: 'agenda' },
@@ -45,7 +49,8 @@ const pantallaError = () => marco(`<p class="marca">El cuaderno de Juan</p><h1>N
   <p class="sub grande">${esc(estado.error)}</p><button class="btn pri" data-a="recargar">${ico('undo')}Intentar de nuevo</button>`);
 const pantallaQuien = () => marco(`<p class="marca">El cuaderno de Juan</p><h1>¿Quién eres?</h1>
   <p class="sub grande">Toca tu nombre. Queda guardado en este celular y firma lo que anotes.</p>
-  ${PERSONAS.map((p) => `<button class="btn sec gigante" data-a="elegirQuien" data-v="${p}">${ico('user')}${p}</button>`).join('')}
+  ${PERSONAS.map((p) => `<button class="btn sec gigante" data-a="elegirQuien" data-v="${p}">${ico('user')}${esc(nombrePerfil(p))}</button>`).join('')}
+  <p class="nota">Elegir un nombre ajusta la pantalla y firma lo anotado. No es una contraseña.</p>
   <p class="nota">Seña de este cuaderno: <b class="sena">${sena(estado.familia)}</b>. A toda la familia le tiene que salir la misma.</p>`);
 const pantallaBienvenida = () => marco(`<p class="marca">El cuaderno de Juan</p><h1>Falta el link de la familia</h1>
   <p class="sub grande">Abre el link que te mandaron por WhatsApp. Si lo tienes copiado, pégalo aquí.</p>
@@ -96,7 +101,8 @@ function pintarTodo() {
   else html = armazon(ruta());
   igualar(porId('app'), html);
 
-  // Al entrar a Hoy, bajar hasta lo que toca ahora (como una agenda).
+  // Al entrar a Hoy, bajar hasta lo que toca ahora (como una agenda). En la portada de Juan se parte desde arriba.
+  if (estado.config && estado.quien && estado.ui.irAhora && ruta().nombre === 'hoy' && esJuan()) estado.ui.irAhora = false;
   if (estado.config && estado.quien && estado.ui.irAhora && ruta().nombre === 'hoy') {
     estado.ui.irAhora = false;
     const toca = document.querySelector('.fila.toca'), marca = porId('ahora');
@@ -114,7 +120,7 @@ aplicarTema();
 acciones.recargar = () => location.reload();
 acciones.elegirQuien = (d) => {
   estado.quien = d.v; guardarLocal('cj_quien', d.v);
-  if (d.volver) { aviso(`Este celular ahora es de ${d.v}`); ir(d.volver); } else { estado.ui.irAhora = true; pintar(); }
+  if (d.volver) { aviso(`Este celular ahora es de ${nombrePerfil(d.v)}`); ir(d.volver); } else { estado.ui.irAhora = true; pintar(); }
 };
 acciones.pedirCrear = () => { estado.ui.crear = true; pintar(); };
 acciones.cancelarCrear = () => { estado.ui.crear = false; pintar(); };
@@ -144,7 +150,7 @@ document.addEventListener('keydown', (e) => {
   if (t.getAttribute && t.getAttribute('role') === 'button') { e.preventDefault(); t.click(); }
 });
 porId('aviso-deshacer').addEventListener('click', ejecutarDeshacer);
-window.addEventListener('hashchange', () => { estado.ui = { irAhora: true }; if (ruta().nombre === 'resumen') resumen.alEntrar(); window.scrollTo(0, 0); pintar(); });
+window.addEventListener('hashchange', () => { estado.ui = { irAhora: true, borradoresComida: estado.ui.borradoresComida }; if (ruta().nombre === 'resumen') resumen.alEntrar(); window.scrollTo(0, 0); pintar(); });
 window.addEventListener('online', pintar);
 window.addEventListener('offline', pintar);
 window.addEventListener('scroll', () => { document.body.classList.toggle('bajo', window.pageYOffset > 150); }, { passive: true });

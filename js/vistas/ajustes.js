@@ -2,7 +2,7 @@
 import { estado, acciones, pintar, ir, aviso, guardarLocal, leerLocal, esAdmin, temaElegido, aplicarTema, sena, APARATO } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, porId, idAzar, copiar, compartir, DIAS_K, DIAS_C, claveFecha, hhmm, fechaCorta } from '../util.js';
-import { PERSONAS, COMIDAS } from '../datos.js';
+import { PERSONAS, COMIDAS, ACOMPANANTES, nombrePerfil } from '../datos.js';
 
 const volver = (a, texto) => `<a class="btn quieto izq" href="#${a}">${ico('left')}${texto}</a>`;
 const campo = (id, rotulo, valor, extra) => `<div class="campo"><label for="${id}">${rotulo}</label><input class="texto" id="${id}" value="${esc(valor == null ? '' : valor)}" autocomplete="off" ${extra || ''}></div>`;
@@ -34,7 +34,7 @@ function menu() {
   const TEMAS = { auto: 'Automático', claro: 'Claro', oscuro: 'Oscuro' };
   const personales = `${op('apariencia', 'sun', 'Apariencia', TEMAS[temaElegido()])}
       ${op('alarmas', 'bell', 'Alarmas de los remedios', 'Cómo ponerlas en el iPhone')}
-      ${op('quien', 'user', 'Quién usa este celular', esc(estado.quien))}`;
+      ${op('quien', 'user', 'Quién usa este celular', esc(nombrePerfil(estado.quien)))}`;
   if (!esAdmin()) return `<div class="envoltura">${volver('agenda', 'Volver a Agenda')}${estadoCuaderno()}<div class="lista-aj">${personales}</div>
     <p class="nota">Los remedios, los rangos y los datos de emergencia los administra Fabián.</p></div>`;
   return `<div class="envoltura">
@@ -45,6 +45,8 @@ function menu() {
       ${op('remedios', 'pill', 'Remedios', n ? `${n} ${n === 1 ? 'activo' : 'activos'}` : 'Aún no hay remedios')}
       ${op('rangos', 'gauge', 'Rangos y horas de medir', estado.config.rangos.provisorio ? 'Rangos generales' : 'Con los del médico')}
       ${op('emergencia', 'phone', 'Datos de emergencia', estado.config.emergencia.direccion ? 'Dirección y contactos' : 'Falta la dirección')}
+      <a class="opcion-aj" href="#corazon/editar"><span class="cap redonda">${ico('heart')}</span><span class="info"><span class="tit">Mi corazón: informes</span><span class="sub">${((estado.config.corazon || {}).estudios || []).length ? 'Exámenes cargados' : 'Aún no hay exámenes cargados'}</span></span>${ico('right')}</a>
+      <a class="opcion-aj" href="#agenda/cuidados/editar"><span class="cap redonda">${ico('leaf')}</span><span class="info"><span class="tit">Actividades y cuidados</span><span class="sub">Indicaciones del equipo de salud</span></span>${ico('right')}</a>
       ${op('menu', 'food', 'Menú semanal', estado.config.menuEsEjemplo ? 'Es el de ejemplo' : 'Ajustado')}
       ${op('invitar', 'family', 'Invitar a la familia', 'Link para WhatsApp')}
       ${op('respaldo', 'download', 'Respaldo', resp ? `Último: ${new Date(resp).toLocaleDateString('es-CL')}` : 'Aún no se hace ninguno')}
@@ -147,9 +149,18 @@ acciones.guardarRangos = () => {
 };
 
 // ---------- Emergencia ----------
+// Filas de contactos: las guardadas y al menos una libre. Si falta alguien de quienes acompañan (por ejemplo, Coni),
+// se sugiere su nombre en una fila libre, sin teléfono: solo queda guardado si Fabián toca Guardar.
+function filasContactos() {
+  const cs = estado.config.contactos.map((x) => ({ nombre: x.nombre || '', telefono: x.telefono || '' }));
+  const faltan = ACOMPANANTES.filter((p) => !cs.some((x) => x.nombre.trim().toLowerCase() === p.toLowerCase()));
+  faltan.forEach((p) => { const libre = cs.find((x) => !x.nombre && !x.telefono); if (libre) libre.nombre = p; else cs.push({ nombre: p, telefono: '' }); });
+  if (!cs.some((x) => !x.nombre && !x.telefono)) cs.push({ nombre: '', telefono: '' });
+  return cs.slice(0, 8);
+}
 function editorEmergencia() {
-  const e = estado.config.emergencia, cs = estado.config.contactos;
-  const fila = (i) => { const x = cs[i] || {}; return `<div class="dos">${campo('e-n' + i, i === 3 ? 'Otro contacto' : 'Nombre', x.nombre, 'maxlength="30"')}${campo('e-t' + i, 'Teléfono', x.telefono, 'inputmode="tel" maxlength="20" placeholder="+569..."')}</div>`; };
+  const e = estado.config.emergencia, cs = filasContactos();
+  const fila = (x, i) => `<div class="dos">${campo('e-n' + i, x.nombre ? 'Nombre' : 'Otro contacto', x.nombre, 'maxlength="30"')}${campo('e-t' + i, 'Teléfono', x.telefono, 'inputmode="tel" maxlength="20" placeholder="+569..."')}</div>`;
   return `<div class="envoltura" data-k="emer">${volver('ajustes', 'Volver a Ajustes')}
     <div class="panel"><p class="h3">Cómo llegar a la casa</p>
       ${campo('e-dir', 'Dirección', e.direccion, 'maxlength="120"')}
@@ -160,11 +171,13 @@ function editorEmergencia() {
       ${campo('e-alergias', 'Alergias', e.alergias, 'maxlength="120"')}
       ${campo('e-hospital', 'Hospital o clínica donde se atiende', e.hospital, 'maxlength="120"')}
       <p class="nota">Los remedios se toman solos desde la lista de Remedios.</p></div>
-    <div class="panel"><p class="h3">Contactos de la familia</p>${[0, 1, 2, 3].map(fila).join('')}</div>
-    <button class="btn pri" data-a="guardarEmergencia">${ico('check')}Guardar datos</button></div>`;
+    <div class="panel" data-k="contactos-${cs.length}"><p class="h3">Contactos de la familia</p>${cs.map(fila).join('')}
+      <p class="nota">Si a alguien le falta el teléfono, déjalo vacío: en Emergencia aparece "Falta el teléfono".</p></div>
+    <button class="btn pri" data-a="guardarEmergencia" data-n="${cs.length}">${ico('check')}Guardar datos</button></div>`;
 }
-acciones.guardarEmergencia = () => {
-  const contactos = [0, 1, 2, 3].map((i) => ({ nombre: val('e-n' + i), telefono: val('e-t' + i) }));
+acciones.guardarEmergencia = (d) => {
+  const n = Number(d.n) || 4, contactos = [];
+  for (let i = 0; i < n; i++) { const c = { nombre: val('e-n' + i), telefono: val('e-t' + i) }; if (c.nombre || c.telefono || i < 4) contactos.push(c); }
   guardarCfg({
     emergencia: { nombre: val('e-nombre') || 'Juan', edad: val('e-edad'), condiciones: porId('e-cond').value.trim(), alergias: val('e-alergias'), hospital: val('e-hospital'), direccion: val('e-dir'), referencias: porId('e-ref').value.trim() },
     contactos,
@@ -292,7 +305,8 @@ acciones.restaurarRespaldo = async () => {
 function quien() {
   return `<div class="envoltura">${volver('ajustes', 'Volver a Ajustes')}
     <p class="sub grande">Lo que se anote desde este celular queda firmado con este nombre.</p>
-    ${PERSONAS.map((p) => `<button class="btn ${p === estado.quien ? 'pri' : 'sec'} izq" data-a="elegirQuien" data-v="${p}" data-volver="ajustes">${ico('user')}${p}</button>`).join('')}</div>`;
+    ${PERSONAS.map((p) => `<button class="btn ${p === estado.quien ? 'pri' : 'sec'} izq" data-a="elegirQuien" data-v="${p}" data-volver="ajustes">${ico('user')}${esc(nombrePerfil(p))}</button>`).join('')}
+    <p class="nota">Elegir un nombre ajusta la pantalla y firma lo anotado. No es una contraseña ni da permisos nuevos.</p></div>`;
 }
 
 // ---------- Apariencia ----------

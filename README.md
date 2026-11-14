@@ -79,7 +79,7 @@ js/guias.js       cómo usar las máquinas de la casa y guía de comidas (plato,
 js/nucleo.js      estado compartido y aviso "Deshacer"
 js/util.js        fechas, actualización del DOM, copiar y compartir
 js/plan.js        plan de cada día y copia para el historial
-js/vistas/        hoy, medir, comidas, agenda, emergencia, ajustes, resumen (panel y reportes PDF)
+js/vistas/        hoy, portada, corazon, medir, comidas, agenda, cuidados, emergencia, ajustes, resumen (panel y reportes PDF)
 sw.js             deja la app guardada para abrir sin señal
 firestore.rules   reglas de seguridad
 ```
@@ -104,8 +104,11 @@ Los recordatorios no los hace la app: se usa un calendario compartido de iCloud 
 - Solo quien entra como **Fabián** ve las opciones de administración. Es para simplificar la pantalla a los demás, no una barrera de seguridad.
 
 ## Entrega familiar del 14 de noviembre
+- Perfiles: suma a **Coni** (acompañante, firmas y turnos) y a **Juan · Papá** (portada personal de consulta y comprensión, fuera de la rotación de turnos de cuidadores).
+- Mi corazón (`#corazon`): separa lecturas de casa, informes médicos (con estado de respaldo) y educación general con fuentes clínicas (AHA, NHS, CDC).
+- Actividades y cuidados (`#agenda/cuidados`): tres grupos personales (autorizado, evitar por ahora, falta consultar), tarjetas estructuradas y educación general separada.
+- Mejoras compartidas: registro y corrección de comidas con hora real (`ts` vs `creado`), frase e ilustración en Comidas, recordatorio de la rutina en Medir y línea de tiempo compactable por perfil en Hoy.
 - Colaciones opcionales en Hoy y Comidas, con horarios, ideas y porciones editables; no cuentan como pendientes obligatorios.
-- Actividades y cuidados en Agenda y Hoy, con indicaciones personales y fuente cargadas por la familia.
-- Cache de la PWA: cuaderno-v6.
-- Verificacion final: sintaxis ES2021 y apertura de cinco pantallas a 375 px. Pruebas completas de estas adiciones e iPhone real pendientes.
+- Caché de la PWA: `cuaderno-v7`.
+- Verificación: sintaxis ES2021 y apertura de las pantallas modificadas. Pruebas completas pendientes para la otra cuenta e iPhone real.
 

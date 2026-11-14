@@ -3,7 +3,7 @@ import { estado, acciones, pintar } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, claveFecha, deClave, sumarDias, lunesDe, hhmm, fechaLarga, fechaCorta, DIAS, MESES, mayus } from '../util.js';
 import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, valorTexto, detalleMomento } from '../datos.js';
-import { itemsDelDia, resumenRemedios, medicionesDeTarea } from '../plan.js';
+import { itemsDelDia, resumenRemedios, medicionesDeTarea, INFO_COMIDA } from '../plan.js';
 import { anillo } from './hoy.js';
 
 const R = { periodo: 'todo', clave: '', datos: null, cargando: false, error: '', rep: { modo: 'dia', fecha: '', clave: '', datos: null, cargando: false } };
@@ -95,7 +95,7 @@ function panel() {
   // Lo más reciente
   const eventos = [];
   Object.keys(d.tomas).forEach((id) => { const t = d.tomas[id]; eventos.push(t.clase === 'comida'
-    ? { ts: t.ts, ic: 'comida', icono: 'food', tit: `${mayus(t.comida)}: ${(COMIO[t.comio] || '').toLowerCase()}`, quien: t.quien }
+    ? { ts: t.ts, ic: 'comida', icono: 'food', tit: `${(INFO_COMIDA[t.comida] && INFO_COMIDA[t.comida].nombre) || mayus(t.comida)}: ${(COMIO[t.comio] || '').toLowerCase()}${t.nota ? ' (' + t.nota + ')' : ''}`, quien: t.quien }
     : { ts: t.ts, ic: '', icono: 'pill', tit: t.nombre, quien: t.quien }); });
   d.mediciones.forEach((m) => eventos.push({ ts: m.ts, ic: 'medir', icono: TIPOS[m.tipo].icono, tit: `${TIPOS[m.tipo].nombre} ${valorTexto(m)}`, quien: m.quien, c: clasificar(m, estado.config.rangos) }));
   eventos.sort((a, b) => b.ts - a.ts);
@@ -141,7 +141,7 @@ function seccionesDia(f, d) {
     <h3>Remedios</h3>${tabla(['Hora', 'Remedio', 'Dosis', 'Registro'], meds.map((i) => { const t = d.tomas[i.id]; return [i.hora, esc(i.r.nombre), esc(i.r.dosis || '—'), t ? `Dado a las ${hhmm(new Date(t.ts))} · ${esc(t.quien)}${t.corregido ? ' (hora corregida)' : ''}` : falta(i)]; }))}
     ${rutina.length ? `<h3>Rutina de mediciones</h3>${tabla(['Hora prevista', 'Tarea', 'Registro'], rutina.map((i) => { const r = medicionesDeTarea(f, i.tid, d); return [i.hora, TAREAS[i.tid].nombre, r.length ? r.map((m) => `<b>${valorTexto(m)}</b> a las ${hhmm(new Date(m.ts))} · ${esc(m.quien)}`).join('<br>') : falta(i)]; }))}` : ''}
     <h3>Mediciones</h3>${tabla(['Hora', 'Medición', 'Valor', 'Según rangos', 'Anotó', 'Nota'], ms.map((m) => [hhmm(new Date(m.ts)), TIPOS[m.tipo].nombre + (detalleMomento(m) ? ` (${detalleMomento(m)})` : ''), `<b>${valorTexto(m)}</b>${TIPOS[m.tipo].unidad && m.tipo !== 'oxigeno' ? ' ' + TIPOS[m.tipo].unidad : ''}`, estadoTxt(m), esc(m.quien), esc([m.animo ? `Se siente ${m.animo.toLowerCase()}` : '', m.nota || '', m.despues ? 'Anotado después' : ''].filter(Boolean).join('. ') || '—')]))}
-    <h3>Comidas</h3>${tabla(['Hora', 'Comida', 'Previsto', 'Porción indicada', 'Lo que comió'], comidas.map((i) => { const t = d.tomas[i.id]; return [i.hora, i.nombre, esc(i.texto || '—'), esc(i.porciones ? i.porciones.split('\n').join('; ') : 'Pendiente de indicar'), t ? `${COMIO[t.comio] || 'Anotado'}${t.nota ? ` · ${esc(t.nota)}` : ''} · ${esc(t.quien)}` : i.opcional ? 'Opcional · sin registro' : falta(i)]; }))}`;
+    <h3>Comidas</h3>${tabla(['Hora prevista', 'Comida', 'Previsto', 'Porción indicada', 'Lo que comió y hora real'], comidas.map((i) => { const t = d.tomas[i.id]; return [i.hora, i.nombre, esc(i.texto || '—'), esc(i.porciones ? i.porciones.split('\n').join('; ') : 'Pendiente de indicar'), t ? `${COMIO[t.comio] || 'Anotado'}${t.nota ? ` · ${esc(t.nota)}` : ''} · a las ${hhmm(new Date(t.ts))}${t.corregido ? ` (corregido${t.editadoPor ? ' por ' + esc(t.editadoPor) : ''})` : t.despues ? ' (anotado después)' : ''} · ${esc(t.quien)}` : i.opcional ? 'Opcional · sin registro' : falta(i)]; }))}`;
 }
 
 function seccionesSemana(lunes, d) {

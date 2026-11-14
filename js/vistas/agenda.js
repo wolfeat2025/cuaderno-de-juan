@@ -1,23 +1,24 @@
 // AGENDA: quién acompaña a Juan cada día y las fechas médicas.
-import { estado, acciones, pintar, ir, aviso, paraGuardar } from '../nucleo.js';
+import { estado, acciones, pintar, ir, aviso, paraGuardar, esJuan } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, claveFecha, deClave, sumarDias, lunesDe, fechaMedia, fechaLarga, DIAS, MESES, mayus } from '../util.js';
 import { cuidados, tituloCuidados } from './cuidados.js';
-import { PERSONAS } from '../datos.js';
+import { ACOMPANANTES } from '../datos.js';
 
 function turnos() {
-  const hoy = claveFecha(estado.ahora);
+  const hoy = claveFecha(estado.ahora), juan = esJuan();
   const lunes = sumarDias(lunesDe(estado.ahora), 7 * (estado.ui.semana || 0));
   let filas = '';
   for (let i = 0; i < 7; i++) {
     const d = sumarDias(lunes, i), k = claveFecha(d), quien = estado.turnos[k];
-    filas += `<button class="turno${k === hoy ? ' es-hoy' : ''}" data-k="${k}" data-a="cambiarTurno" data-dia="${k}" ${k < hoy ? 'disabled' : ''}>
+    // En el perfil de Juan los turnos se consultan: un toque no los cambia.
+    filas += `<button class="turno${k === hoy ? ' es-hoy' : ''}" data-k="${k}" data-a="cambiarTurno" data-dia="${k}" ${k < hoy || juan ? 'disabled' : ''}>
       <span class="num">${d.getDate()}</span><span class="sem">${k === hoy ? 'Hoy' : mayus(DIAS[d.getDay()])}</span>
       <span class="per${quien ? '' : ' vacio'}">${quien ? esc(quien) : 'Sin asignar'}</span></button>`;
   }
   const s = estado.ui.semana || 0;
-  return `<div class="titulo-fila"><p class="h2">Quién acompaña</p><a class="mini-btn" href="#ajustes">${ico('gear')}Ajustes</a></div>
-    <p class="sub">Semana del ${lunes.getDate()} de ${MESES[lunes.getMonth()]}. Toca un día para cambiar.</p>
+  return `<div class="titulo-fila"><p class="h2">${juan ? 'Quién te acompaña' : 'Quién acompaña'}</p><a class="mini-btn" href="#ajustes">${ico('gear')}Ajustes</a></div>
+    <p class="sub">Semana del ${lunes.getDate()} de ${MESES[lunes.getMonth()]}. ${juan ? 'Los turnos los organiza la familia.' : 'Toca un día para cambiar.'}</p>
     <div class="turnos">${filas}</div>
     <div class="dos">
       ${s > 0 ? `<button class="btn quieto" data-a="semana" data-v="${s - 1}">${ico('left')}Semana anterior</button>` : ''}
@@ -69,9 +70,10 @@ export const titulo = (args) => (args[0] === 'cuidados' ? tituloCuidados : args[
 
 acciones.semana = (d) => { estado.ui.semana = Number(d.v); pintar(); };
 acciones.cambiarTurno = (d) => {
+  if (esJuan()) return;
   const actual = estado.turnos[d.dia];
-  const i = PERSONAS.indexOf(actual);
-  const sig = i === PERSONAS.length - 1 ? '' : PERSONAS[i + 1];   // Mamá → Fernando → Fabián → sin asignar
+  const i = ACOMPANANTES.indexOf(actual);
+  const sig = i === ACOMPANANTES.length - 1 ? '' : ACOMPANANTES[i + 1];   // Mamá → Fernando → Fabián → Coni → sin asignar
   if (sig) db.poner('turnos', d.dia, { fecha: d.dia, quien: sig, anoto: estado.quien, ts: Date.now() });
   else db.borrar('turnos', d.dia);
 };

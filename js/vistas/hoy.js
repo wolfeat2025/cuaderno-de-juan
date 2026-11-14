@@ -1,5 +1,5 @@
 // HOY: el día de Juan como línea de tiempo compacta (hora, tarea y botón).
-import { estado, acciones, pintar, aviso, guardarLocal, leerLocal, esAdmin, paraGuardar } from '../nucleo.js';
+import { estado, acciones, pintar, aviso, guardarLocal, leerLocal, esAdmin, esJuan, compacto, fijarCompacto, paraGuardar } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, claveFecha, deClave, sumarDias, hhmm, fechaLarga, DIAS, mayus } from '../util.js';
 import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, valorTexto } from '../datos.js';
@@ -12,6 +12,11 @@ const pend = (d) => (sinSubir(d) ? ' <span class="pend">· sin subir</span>' : '
 
 const fila = (cls, k, hora, tarjeta) => `<div class="fila ${cls}" data-k="${k}"><div class="hora">${hora}</div><div class="riel"><span class="nodo"></span></div>${tarjeta}</div>`;
 
+function firmaToma(t) {
+  const verbo = t.quien === 'Juan' ? (esJuan() ? 'Lo anotaste' : 'Lo anotó Juan') : `Lo dio ${esc(t.quien)}`;
+  return `${verbo} a las ${hhmm(new Date(t.ts))}${t.corregido ? ' (hora corregida)' : ''}${pend(t)}`;
+}
+
 function filaMed(it, modo, ahoraHM, fecha, anotable) {
   const t = estado.tomas[it.id], r = it.r;
   const detalle = [r.dosis, r.paraQue].filter(Boolean).map(esc).join(' · ');
@@ -19,11 +24,12 @@ function filaMed(it, modo, ahoraHM, fecha, anotable) {
     const abierta = estado.ui.tomaAbierta === it.id;
     return fila('med hecho', it.id, it.hora, `<div class="tarjeta-fila"><div class="toca-area cabeza" data-a="abrirToma" data-id="${it.id}" role="button" tabindex="0">
         <span class="ic hecho">${ico('check')}</span>
-        <div class="txt"><p class="tit">${esc(r.nombre)}</p><p class="firma">Lo dio ${esc(t.quien)} a las ${hhmm(new Date(t.ts))}${t.corregido ? ' (hora corregida)' : ''}${pend(t)}</p></div>${ico(abierta ? 'down' : 'right', 'flecha')}</div>
+        <div class="txt"><p class="tit">${esc(r.nombre)}</p><p class="firma">${firmaToma(t)}</p></div>${ico(abierta ? 'down' : 'right', 'flecha')}</div>
       ${abierta ? `<div class="agregar ancho"><input class="texto" id="hora-toma" type="time" value="${hhmm(new Date(t.ts))}" aria-label="Hora en que lo tomó"><button class="btn sec auto" data-a="guardarHoraToma" data-id="${it.id}">${ico('clock')}Cambiar hora</button></div>
         <button class="btn quieto" data-a="quitarToma" data-id="${it.id}">${ico('undo')}Quitar la marca</button>` : ''}</div>`);
   }
-  const boton = (cls) => `<button class="btn ${cls}" data-a="tomar" data-id="${it.id}" data-rid="${esc(r.id)}" data-hora="${it.hora}" data-fecha="${fecha}">${ico('check')}Ya lo tomó</button>`;
+  const txtBoton = esJuan() ? 'Ya lo tomé' : 'Ya lo tomó';
+  const boton = (cls) => `<button class="btn ${cls}" data-a="tomar" data-id="${it.id}" data-rid="${esc(r.id)}" data-hora="${it.hora}" data-fecha="${fecha}">${ico('check')}${txtBoton}</button>`;
   if (modo === 'pasado') {
     return fila('med', it.id, it.hora, `<div class="tarjeta-fila"><span class="ic vacio">${ico('pill')}</span>
       <div class="txt"><p class="tit">${esc(r.nombre)}</p>${detalle ? `<p class="sub">${detalle}</p>` : ''}<p class="firma falta">No quedó anotado</p></div>${anotable ? boton('sec') : ''}</div>`);
@@ -40,7 +46,7 @@ function filaMedir(it, fecha, modo) {
   const hecho = tipos.length > 0;
   const sub = hecho ? `Anotado: ${tipos.join(', ')}` : (modo === 'pasado' ? 'No quedó anotado' : 'Presión, pulso, azúcar y oxígeno');
   return fila('medir' + (hecho ? ' hecho' : ''), 'medir' + it.i, it.hora, `<div class="tarjeta-fila"><span class="ic ${hecho ? 'hecho' : 'medir'}">${ico(hecho ? 'check' : 'pulse')}</span>
-    <div class="txt"><p class="tit">Medir a Juan</p><p class="${hecho ? 'firma' : 'sub'}">${sub}</p></div>
+    <div class="txt"><p class="tit">${esJuan() ? 'Mis mediciones' : 'Medir a Juan'}</p><p class="${hecho ? 'firma' : 'sub'}">${sub}</p></div>
     ${modo === 'hoy' ? `<a class="btn sec" href="#medir">${ico('plus')}Anotar</a>` : ''}</div>`);
 }
 
@@ -59,11 +65,14 @@ function filaTarea(it, fecha, modo) {
 
 function filaComida(it) {
   const reg = estado.tomas[it.id];
+  const detalleReg = reg
+    ? `${COMIO[reg.comio] || 'Anotado'}${reg.nota ? ': ' + esc(reg.nota) : ''} · ${hhmm(new Date(reg.ts))}${reg.corregido ? ' (corregido)' : ''} · ${esc(reg.quien)}${pend(reg)}`
+    : '';
   return fila('comida' + (reg ? ' hecho' : ''), it.id, it.hora, `<a class="tarjeta-fila plana" href="#comidas"><span class="ic ${reg ? 'hecho' : 'comida'}">${ico(reg ? 'check' : it.icono)}</span>
-    <div class="txt"><p class="tit">${it.nombre}${it.opcional ? ' · opcional' : ''}</p>${reg ? `<p class="firma">${COMIO[reg.comio] || 'Anotado'} · ${esc(reg.quien)}${pend(reg)}</p>` : `<p class="sub">${esc(it.texto)}</p>`}</div>${ico('right', 'flecha')}</a>`);
+    <div class="txt"><p class="tit">${it.nombre}${it.opcional ? ' · opcional' : ''}</p>${reg ? `<p class="firma">${detalleReg}</p>` : `<p class="sub">${esc(it.texto)}</p>`}</div>${ico('right', 'flecha')}</a>`);
 }
 
-function tiraSemana(hoy, dia) {
+export function tiraSemana(hoy, dia) {
   const inicio = sumarDias(deClave(hoy), -3);
   let h = '<div class="semana" role="group" aria-label="Días cercanos">';
   for (let i = 0; i < 7; i++) {
@@ -79,6 +88,93 @@ export function anillo(dados, total) {
   return `<svg class="anillo" viewBox="0 0 60 60" role="img" aria-label="${dados} de ${total} remedios dados"><circle class="pista" cx="30" cy="30" r="24"/>
     <circle class="avance" cx="30" cy="30" r="24" stroke-dasharray="${(c * parte).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 30 30)"/>
     <text x="30" y="36" text-anchor="middle">${dados}/${total}</text></svg>`;
+}
+
+function itemEstaHecho(it, dia) {
+  if (it.tipo === 'med' || it.tipo === 'comida') return !!estado.tomas[it.id];
+  if (it.tipo === 'tarea') return medicionesDeTarea(dia, it.tid).length > 0;
+  if (it.tipo === 'medir') return medicionesDeTurno(dia, it.i).length > 0;
+  return false;
+}
+function itemConAviso(it, dia) {
+  if (estado.ui.tomaAbierta && it.id === estado.ui.tomaAbierta) return true;
+  if (it.tipo === 'tarea') {
+    const ms = medicionesDeTarea(dia, it.tid), ult = ms[ms.length - 1];
+    if (ult && clasificar(ult, estado.config.rangos) !== 'verde') return true;
+  }
+  return false;
+}
+function renderFilaItem(it, dia, modo, ahoraHM, anotable) {
+  if (it.tipo === 'med') return filaMed(it, modo, ahoraHM, dia, anotable);
+  if (it.tipo === 'tarea') return filaTarea(it, dia, modo);
+  if (it.tipo === 'medir') return filaMedir(it, dia, modo);
+  return filaComida(it);
+}
+
+// Bloque de línea de tiempo con botón "Compactar" / "Ver completo" en la esquina superior derecha.
+export function bloqueLineaDia(dia, modo, ahoraHM, anotable, items, rotuloTxt) {
+  const esComp = compacto();
+  const marcaAhora = `<div class="fila marca-ahora" id="ahora"><div class="hora">${ahoraHM}</div><div class="riel"><span class="punto"></span></div><p class="ahora-txt">Ahora</p></div>`;
+  const sinPlan = modo === 'pasado' && !planDe(dia) ? '<p class="nota">Ese día nadie abrió el cuaderno, así que solo se muestra lo que quedó anotado.</p>' : '';
+  const cab = `<div class="linea-cab">
+    <p class="rotulo">${ico('clock')}${esc(rotuloTxt || (esJuan() ? 'Mi día' : 'Línea del día'))}</p>
+    <button type="button" class="mini-btn btn-compactar" data-a="alternarCompacto" aria-pressed="${esComp ? 'true' : 'false'}">
+      ${ico(esComp ? 'down' : 'up')}<span>${esComp ? 'Ver completo' : 'Compactar'}</span>
+    </button>
+  </div>`;
+
+  if (!items.length) {
+    return `<div class="linea-bloque">${cab}<div class="linea"><p class="vacio-txt">No hay nada anotado para este día.</p>${sinPlan}</div></div>`;
+  }
+
+  let cuerpo = '', grupoHechosHtml = '';
+  if (esComp) {
+    const hechos = items.filter((it) => itemEstaHecho(it, dia) && !itemConAviso(it, dia));
+    const visibles = items.filter((it) => !itemEstaHecho(it, dia) || itemConAviso(it, dia));
+    const mostrarHechos = !!estado.ui.verHechosDia || visibles.length === 0;
+    if (hechos.length) {
+      const filasHechas = mostrarHechos
+        ? `<div class="hechos-compactos">${hechos.map((it) => renderFilaItem(it, dia, modo, ahoraHM, anotable)).join('')}</div>`
+        : '';
+      grupoHechosHtml = `<div class="grupo-hechos-caja">
+        <button type="button" class="acompana btn-hechos-dia" data-a="alternarHechosDia" aria-expanded="${mostrarHechos ? 'true' : 'false'}">
+          <span class="ic hecho">${ico('check')}</span>
+          <span><b>${hechos.length === 1 ? '1 registro listo' : `${hechos.length} registros listos`}</b> · ${mostrarHechos ? 'Ocultar lo hecho' : 'Ver lo hecho'}</span>
+          ${ico(mostrarHechos ? 'down' : 'right', 'flecha')}
+        </button>
+        ${filasHechas}
+      </div>`;
+    }
+    let franjaActual = '', pusoAhora = modo !== 'hoy';
+    visibles.forEach((it) => {
+      const f = franja(it.hora);
+      if (f !== franjaActual) {
+        franjaActual = f;
+        cuerpo += `<div class="fila ancla"><div class="hora"></div><div class="riel"></div><p class="rotulo">${ico(ICONO_FRANJA[f])}${f}</p></div>`;
+      }
+      if (!pusoAhora && it.hora > ahoraHM) { cuerpo += marcaAhora; pusoAhora = true; }
+      cuerpo += renderFilaItem(it, dia, modo, ahoraHM, anotable);
+    });
+    if (!pusoAhora && visibles.length) cuerpo += marcaAhora;
+  } else {
+    let franjaActual = '', pusoAhora = modo !== 'hoy';
+    items.forEach((it) => {
+      const f = franja(it.hora);
+      if (f !== franjaActual) {
+        franjaActual = f;
+        cuerpo += `<div class="fila ancla"><div class="hora"></div><div class="riel"></div><p class="rotulo">${ico(ICONO_FRANJA[f])}${f}</p></div>`;
+      }
+      if (!pusoAhora && it.hora > ahoraHM) { cuerpo += marcaAhora; pusoAhora = true; }
+      cuerpo += renderFilaItem(it, dia, modo, ahoraHM, anotable);
+    });
+    if (!pusoAhora) cuerpo += marcaAhora;
+  }
+
+  return `<div class="linea-bloque">
+    ${cab}
+    ${grupoHechosHtml}
+    <div class="linea${esComp ? ' compacta' : ''}">${cuerpo}${sinPlan}</div>
+  </div>`;
 }
 
 function tarjetaResumen(dia, modo, items, ahoraHM) {
@@ -124,21 +220,6 @@ export function render() {
   const items = itemsDelDia(dia);
   const acompana = estado.turnos[dia];
 
-  let linea = '', franjaActual = '', pusoAhora = modo !== 'hoy';
-  const marcaAhora = `<div class="fila marca-ahora" id="ahora"><div class="hora">${ahoraHM}</div><div class="riel"><span class="punto"></span></div><p class="ahora-txt">Ahora</p></div>`;
-  items.forEach((it) => {
-    const f = franja(it.hora);
-    if (f !== franjaActual) {
-      franjaActual = f;
-      linea += `<div class="fila ancla"><div class="hora"></div><div class="riel"></div><p class="rotulo">${ico(ICONO_FRANJA[f])}${f}</p></div>`;
-    }
-    if (!pusoAhora && it.hora > ahoraHM) { linea += marcaAhora; pusoAhora = true; }
-    linea += it.tipo === 'med' ? filaMed(it, modo, ahoraHM, dia, anotable) : it.tipo === 'tarea' ? filaTarea(it, dia, modo) : it.tipo === 'medir' ? filaMedir(it, dia, modo) : filaComida(it);
-  });
-  if (!pusoAhora) linea += marcaAhora;
-  if (!items.length) linea = '<p class="vacio-txt">No hay nada anotado para este día.</p>';
-  const sinPlan = modo === 'pasado' && !planDe(dia) ? '<p class="nota">Ese día nadie abrió el cuaderno, así que solo se muestra lo que quedó anotado.</p>' : '';
-
   const instalar = modo === 'hoy' && !window.navigator.standalone && /iPhone|iPad|iPod/.test(navigator.userAgent) && !leerLocal('cj_instalada')
     ? `<div class="panel"><p class="tit">Para tenerla siempre a mano</p><p class="sub">Toca el botón Compartir de Safari y elige "Agregar a inicio".</p><button class="btn quieto" data-a="ocultarInstalar">${ico('check')}Listo, ya la agregué</button></div>` : '';
 
@@ -148,12 +229,14 @@ export function render() {
     <div class="hoy-cols">
       <div class="hoy-resumen">${tarjetaResumen(dia, modo, items, ahoraHM)}
         <a class="acompana" href="#agenda">${ico('user')}<span>${modo === 'hoy' ? 'Acompaña hoy' : 'Acompaña'}: <b>${acompana ? esc(acompana) : 'sin asignar'}</b></span>${ico('right', 'flecha')}</a></div>
-      <div class="linea">${linea}${sinPlan}</div>
-      <div class="hoy-ultimas"><a class="btn sec" href="#agenda/cuidados">${ico('info')}Actividades y cuidados</a>${modo === 'hoy' ? ultimas() : ''}${instalar}</div>
+      ${bloqueLineaDia(dia, modo, ahoraHM, anotable, items)}
+      <div class="hoy-ultimas"><a class="btn sec" href="#agenda/cuidados">${ico('info')}Actividades y cuidados</a><a class="btn quieto" href="#corazon">${ico('heart')}Mi corazón</a>${modo === 'hoy' ? ultimas() : ''}${instalar}</div>
     </div>
   </div>`;
 }
 
+acciones.alternarCompacto = () => { fijarCompacto(!compacto()); pintar(); };
+acciones.alternarHechosDia = () => { estado.ui.verHechosDia = !estado.ui.verHechosDia; pintar(); };
 acciones.tomar = (d) => {
   const item = itemsDelDia(d.fecha || claveFecha(new Date())).find((x) => x.id === d.id);
   if (!item || estado.tomas[d.id]) return;

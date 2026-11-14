@@ -2,7 +2,7 @@
 import { estado, acciones, pintar, ir, aviso, paraGuardar } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, porId, claveFecha, deClave, sumarDias, hhmm, fechaCorta, fechaLarga, diaRelativo, copiar, compartir } from '../util.js';
-import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, mensaje, azucarBaja, valorTexto, detalleMomento, duracion } from '../datos.js';
+import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, rutinaDe, clasificar, mensaje, azucarBaja, valorTexto, detalleMomento, duracion } from '../datos.js';
 import { itemsDelDia, sinSubir, medicionesDeTarea } from '../plan.js';
 import { guiaMaquina } from '../guias.js';
 
@@ -20,6 +20,31 @@ function chispa(t) {
   const x = (k) => 4 + (k * 112) / (vs.length - 1), y = (v) => (hi === lo ? 13 : 22 - ((v - lo) / (hi - lo)) * 18);
   const pts = vs.map((v, k) => `${x(k).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   return `<svg class="chispa" viewBox="0 0 120 26" aria-hidden="true"><polyline points="${pts}"/><circle cx="${x(vs.length - 1).toFixed(1)}" cy="${y(vs[vs.length - 1]).toFixed(1)}" r="3.2"/></svg>`;
+}
+
+// Recordatorio breve de la rutina real de cuatro mediciones, leyendo los horarios configurados.
+function recordatorioMedir() {
+  const r = rutinaDe(estado.config), mapa = {};
+  r.forEach((x) => { mapa[x.id] = x.hora; });
+  const hAzucar = [mapa['glu-ayunas'] ? `ayunas ${mapa['glu-ayunas']}` : '', mapa['glu-almuerzo'] ? `almuerzo + 2 h (${mapa['glu-almuerzo']})` : ''].filter(Boolean).join(' · ');
+  const hPresion = [mapa['pre-manana'] ? `mañana ${mapa['pre-manana']}` : '', mapa['pre-noche'] ? `noche ${mapa['pre-noche']}` : ''].filter(Boolean).join(' · ');
+  return `<div class="panel cuidado recordatorio-medir" role="region" aria-label="Recordatorio de mediciones">
+    <div class="rec-fila">
+      <span class="rec-iconos" aria-hidden="true">${ico('sun')}${ico('soup')}</span>
+      <div>
+        <p class="tit">Azúcar: en ayunas y 2 h después de empezar a almorzar.</p>
+        ${hAzucar ? `<p class="sub">Horario configurado: ${esc(hAzucar)}</p>` : ''}
+      </div>
+    </div>
+    <div class="rec-fila">
+      <span class="rec-iconos" aria-hidden="true">${ico('sun')}${ico('moon')}</span>
+      <div>
+        <p class="tit">Presión y pulso: mañana y noche.</p>
+        ${hPresion ? `<p class="sub">Horario configurado: ${esc(hPresion)}</p>` : ''}
+      </div>
+    </div>
+    <p class="nota">Horarios organizados por la familia en la app (se cambian en Ajustes).</p>
+  </div>`;
 }
 
 // Las tareas de medición de hoy, con su estado. Tocar una abre el formulario con su contexto ya sugerido.
@@ -52,6 +77,7 @@ function principal() {
       <span class="anotar">${ico('plus')}Anotar</span></a>`;
   }).join('');
   return `<div class="envoltura medir">
+    ${recordatorioMedir()}
     ${rutina}
     ${rutina ? `<p class="rotulo">${ico('plus')}Anotar otra medición</p>` : ''}
     <div class="grilla-medir">${tarjetas}</div>
@@ -121,6 +147,12 @@ function formulario(t, tid) {
   let momento = '';
   if (t === 'azucar') {
     const despues = ctx === 'almuerzo' || ctx === 'despues', comida = ctx === 'almuerzo' ? 'almorzar' : 'comer';
+    // Solo se reutiliza una hora de inicio de almuerzo ya confirmada hoy en Medir; nunca la hora de consumo de Comidas.
+    if (ctx === 'almuerzo' && u.inicio === undefined) {
+      const hoy = claveFecha(estado.ahora);
+      const prev = estado.mediciones.find((m) => m.fecha === hoy && m.tipo === 'azucar' && m.tarea === 'glu-almuerzo' && HORA_OK.test(m.inicioComida || ''));
+      u.inicio = prev ? prev.inicioComida : '';
+    }
     let van = '';
     if (despues && HORA_OK.test(u.inicio || '')) {
       const ref = u.otraHora && HORA_OK.test(val('mhora')) ? aMin(val('mhora')) : aMin(hhmm(new Date())), dif = ref - aMin(u.inicio);
@@ -129,7 +161,7 @@ function formulario(t, tid) {
     momento = `<div class="grupo"><p class="rotulo">¿Cuándo se midió?</p><div class="opciones envuelve">${chips(CTX_AZUCAR, 'elegirMomento')}</div></div>
       ${despues ? `<div class="grupo" data-k="inicio"><label class="rotulo" for="minicio">¿A qué hora empezó a ${comida}?</label>
         <input class="texto" id="minicio" type="time" value="${esc(u.inicio || '')}" data-c="cambiarInicio">
-        <p class="nota">${van || 'Si no se sabe, se deja vacío.'} Lo habitual es medir cerca de 2 horas después de empezar.</p></div>` : ''}`;
+        <p class="nota">${van || 'Si no se sabe, se deja vacío.'} Lo habitual es medir cerca de 2 horas después de empezar (se cuenta desde el inicio del almuerzo, no desde la hora en que se anotó la comida).</p></div>` : ''}`;
   } else if (t === 'presion') {
     momento = `<div class="grupo"><p class="rotulo">¿De cuándo es esta medición?</p><div class="opciones">${chips(CTX_PRESION, 'elegirCuando')}</div></div>`;
   }
@@ -302,7 +334,7 @@ acciones.guardarMedicion = (d) => {
     db.poner('mediciones', idPulso, p);
   }
   db.poner('mediciones', id, m);
-  u.errorMedir = ''; u.animo = ''; u.momento = ''; u.cuando = ''; u.inicio = ''; u.otraHora = false;
+  u.errorMedir = ''; u.animo = ''; u.momento = ''; u.cuando = ''; u.inicio = undefined; u.otraHora = false;
   aviso(`${T.nombre} guardada`, () => { db.borrar('mediciones', id); if (idPulso) db.borrar('mediciones', idPulso); ir('medir/' + t); });
   ir(`medir/${t}/listo/${id}`);
 };
