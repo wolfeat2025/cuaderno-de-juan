@@ -7,7 +7,7 @@ import { itemsDelDia, sinSubir } from '../plan.js';
 import { SECCIONES_GUIA, GUIA_COMIDAS, PARTES_PLATO, platoGrande, dibujoPlatoCorazon, PASOS_COMIDA_CORAZON, FUENTES_COMIDA_CORAZON } from '../guias.js';
 import { consultarComida } from '../alimentos.js';
 import { resultadoConsulta } from './consulta-comida.js';
-import { infografia } from '../visuales.js';
+import { infografia, detenerRecorridos } from '../visuales.js';
 import * as nutricion from './nutricion.js';
 
 const COMIO = { todo: 'Comió todo', parte: 'Comió una parte', nada: 'No comió' };
@@ -207,7 +207,7 @@ export function render(args) { return args[0] === 'consulta' ? nutricion.render(
 export const titulo = (args) => (args[0] === 'colaciones' ? 'Colaciones' : args[0] === 'compras' ? 'Compras' : args[0] === 'guia' ? 'Guía' : 'Comidas');
 
 acciones.verPlato = () => { estado.ui.platoVez = (estado.ui.platoVez || 0) + 1; pintar(); };
-acciones.alternarPorQueComida = () => { sincronizarBorradoresEnVivo(); estado.ui.porQueComida = !estado.ui.porQueComida; if (estado.ui.porQueComida) estado.ui.comidaAnimVez = (estado.ui.comidaAnimVez || 0) + 1; pintar(); };
+acciones.alternarPorQueComida = () => { detenerRecorridos(); sincronizarBorradoresEnVivo(); estado.ui.porQueComida = !estado.ui.porQueComida; if (estado.ui.porQueComida) estado.ui.comidaAnimVez = (estado.ui.comidaAnimVez || 0) + 1; pintar(); };
 acciones.repetirAnimComida = () => { sincronizarBorradoresEnVivo(); estado.ui.comidaAnimVez = (estado.ui.comidaAnimVez || 0) + 1; pintar(); };
 
 function abrirEditorComida(d, modo) {
