@@ -768,3 +768,64 @@ textarea.texto { resize: none; line-height: 1.35; }
   .tabla tr, .cifras, .graficos > div, .aviso-parcial { break-inside: avoid; page-break-inside: avoid; }
   .graficos > div { flex: 1 1 45%; }
 }
+
+
+
+
+/* Recorridos participativos de Juan */
+.rj-heading { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.rj-heading { scroll-margin-top:90px; }
+.panel.cuidado>.rj-player { margin:0 -8px; padding:12px; }
+.rj-player .h2 { font-size:23px; line-height:1.2; }
+.rj-player .mini-btn { border:1px solid var(--rule); box-shadow:none; }
+.rj-state { font-size:15px; font-weight:800; color:var(--acc-ink); }
+.rj-stage { border-radius:24px; overflow:hidden; }
+.rj-dibujo { display:block; width:100%; max-width:520px; margin:auto; }
+.rj-background { fill:var(--bg2); }
+.rj-heart,.rj-red { fill:var(--ros-ink); }
+.rj-detail { fill:none; stroke:var(--ink2); stroke-width:2.5; stroke-linecap:round; }
+.rj-paper { fill:var(--sup); stroke:var(--ink2); stroke-width:2.5; }
+.rj-blue { fill:var(--azu-ink); }
+.rj-screen { fill:var(--acc-soft); stroke:var(--acc); stroke-width:2; }
+.rj-accent { fill:var(--acc); }
+.rj-stroke { fill:none; stroke:var(--ink); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+.rj-person { fill:none; stroke:var(--acc-ink); stroke-width:5; stroke-linecap:round; stroke-linejoin:round; }
+.rj-food,.rj-plaque { fill:var(--amb); stroke:var(--ink2); stroke-width:1.5; }
+.rj-cheese-hole { fill:var(--sup); }
+.rj-vessel { fill:none; stroke:var(--ros-ink); stroke-width:39; stroke-linecap:round; }
+.rj-inner { fill:none; stroke:var(--sup); stroke-width:27; stroke-linecap:round; }
+.rj-water { fill:var(--azu-ink); }
+.rj-dot { fill:var(--ink); }
+.rj-gauge { fill:none; stroke:var(--azu-ink); stroke-width:5; stroke-linecap:round; }
+.rj-needle { stroke:var(--ink); stroke-width:3; stroke-linecap:round; transform-origin:40px 39px; }
+.rj-svg-label { fill:var(--ink); font:800 12px Nunito,sans-serif; }
+.rj-number { fill:var(--ink); font:800 20px Nunito,sans-serif; }
+.rj-route,.rj-arrow { fill:none; stroke:var(--acc); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+.rj-caption { min-height:2.6em; font-size:19px; line-height:1.35; font-weight:800; text-align:center; margin:0; }
+.rj-parts { display:flex; gap:6px; }
+.rj-part { flex:1; min-width:0; padding:10px 5px; border:2px solid var(--rule); border-radius:16px; background:var(--sup); color:var(--ink); font:800 16px/1.25 Nunito,sans-serif; min-height:88px; overflow-wrap:break-word; }
+.rj-part span { display:block; width:26px; line-height:26px; border-radius:50%; margin:0 auto 7px; background:var(--bg2); color:var(--ink); }
+.rj-part.sel { background:var(--acc-soft); border-color:var(--acc); color:var(--acc-ink); }
+.rj-part.sel span { background:var(--acc); color:var(--on-acc); }
+.rj-compare { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.rj-compare>button { border:2px solid var(--rule); border-radius:16px; padding:12px; text-align:left; color:var(--ink); font:inherit; }
+.rj-compare>button[aria-pressed="true"] { border-color:var(--acc-ink); }
+.rj-compare b { display:flex; gap:6px; align-items:center; font-size:16px; }
+.rj-compare p { font-size:17px; line-height:1.4; margin:8px 0 0; }
+.rj-compare>.nota { grid-column:1/-1; font-size:15px; }
+.rj-avoid { background:var(--bg2); }.rj-care { background:var(--acc-soft); }
+.rj-care b { color:var(--acc-ink); }
+.rj-stage .rj-node { animation:rj-revelar .45s ease-out both; }
+.rj-moving { animation:rj-circular 3s ease-in-out infinite; }
+.rj-water { animation:rj-agua 4s ease-in-out infinite; }
+.rj-salt { animation:rj-caer 3s ease-in-out infinite; }
+.rj-needle { animation:rj-presion 5s ease-in-out infinite; }
+.rj-completo .rj-node:nth-of-type(2) { animation-delay:.12s; }
+.rj-completo .rj-node:nth-of-type(3) { animation-delay:.24s; }
+.rj-player button:focus-visible { outline:3px solid var(--acc-ink); outline-offset:3px; }
+@keyframes rj-revelar { from {opacity:.2;} to {opacity:1;} }
+@keyframes rj-circular { 0%,100% {transform:translateX(0);} 50% {transform:translateX(5px);} }
+@keyframes rj-agua { 0%,100% {opacity:.6;} 50% {opacity:1;} }
+@keyframes rj-caer { 0%,100% {opacity:.4;} 50% {opacity:1;} }
+@keyframes rj-presion { 0%,100% {transform:rotate(-12deg);} 50% {transform:rotate(10deg);} }
+@media(prefers-reduced-motion:reduce) { .rj-player * { animation:none!important; transition:none!important; } }
