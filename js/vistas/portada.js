@@ -17,103 +17,37 @@ function estadoSincDiscreto() {
   return { cls: 'ok', icono: 'ccheck', txt: `Actualizado · Cuaderno ${sena(estado.familia)}` };
 }
 
-function etiquetaAntiguedad(fechaReg, hoy, ayer) {
-  if (fechaReg === hoy) return { esHoy: true, badge: '<span class="chip ok">De hoy</span>', cuando: 'Hoy' };
-  if (fechaReg === ayer) return { esHoy: false, badge: '<span class="chip amb">De ayer · no es de hoy</span>', cuando: 'Ayer' };
-  const fTxt = fechaCorta(deClave(fechaReg));
-  return { esHoy: false, badge: `<span class="chip amb">Del ${esc(fTxt)} · dato anterior</span>`, cuando: fechaLarga(deClave(fechaReg)) };
-}
-
-function explicaEstado(tipo, c, rangos) {
-  const prov = rangos && rangos.provisorio ? ' (rango general de referencia)' : ' (según rango configurado)';
-  if (c === 'verde') return `Esto significa: está dentro del rango esperado${prov}.`;
-  if (c === 'amarillo') return `Esto significa: está un poco fuera del rango${prov}. Conviene comentarlo en el control o medir más tarde.`;
-  return `Esto significa: está fuera del rango${prov}. Si sientes molestias, avisa a la familia o toca Emergencia.`;
-}
-
-// 2. Tus últimos registros: presión/pulso y azúcar con su fecha y hora reales; oxígeno solo si es relevante o está indicado.
+// Cada valor conserva su fecha/hora real. El aro resume registros: no mide el corazón.
 function bloqueUltimosRegistros(hoy, ayer) {
   const R = estado.config.rangos;
-  const mPres = estado.mediciones.find((m) => m.tipo === 'presion');
-  const mPulso = mPres && mPres.pulsoId
-    ? estado.mediciones.find((m) => m.id === mPres.pulsoId)
-    : estado.mediciones.find((m) => m.tipo === 'pulso');
-  const mAzu = estado.mediciones.find((m) => m.tipo === 'azucar');
-  const mOxi = estado.mediciones.find((m) => m.tipo === 'oxigeno');
-
-  let htmlPres;
-  if (mPres) {
-    const c = clasificar(mPres, R), ant = etiquetaAntiguedad(mPres.fecha, hoy, ayer);
-    const pulsoTxt = mPulso && mPulso.fecha === mPres.fecha ? ` · Pulso: <b>${mPulso.valor}</b> lpm` : '';
-    const ctx = detalleMomento(mPres);
-    htmlPres = `<div class="juan-reg-item" data-k="ult-pres">
-      <div class="titulo-fila">
-        <span class="rotulo-item">${ico('gauge')}Tu última presión${ctx ? ' (' + esc(ctx) + ')' : ''}</span>
-        ${ant.badge}
-      </div>
-      <div class="juan-reg-valor">
-        <span class="v-grande ${c}">${valorTexto(mPres)}</span>
-        <span class="estado ${c}"><span class="luz"></span>${ETIQUETA[c]}</span>
-      </div>
-      <p class="sub grande">${ant.cuando} a las <b>${hhmm(new Date(mPres.ts))}</b>${pulsoTxt} · anotó ${esc(mPres.quien)}${sinSubir(mPres) ? ' · sin subir' : ''}</p>
-      <p class="sub">${explicaEstado('presion', c, R)}</p>
-    </div>`;
-  } else {
-    htmlPres = `<div class="juan-reg-item vacio" data-k="ult-pres-vacio">
-      <div class="titulo-fila"><span class="rotulo-item">${ico('gauge')}Tu última presión</span><span class="chip neutro">Sin lectura</span></div>
-      <p class="tit">Todavía no está anotado</p>
-      <p class="sub">Cuando se tome la presión en casa, aparecerá aquí con su fecha y hora.</p>
-    </div>`;
-  }
-
-  let htmlAzu;
-  if (mAzu) {
-    const c = clasificar(mAzu, R), ant = etiquetaAntiguedad(mAzu.fecha, hoy, ayer);
-    const ctx = detalleMomento(mAzu);
-    htmlAzu = `<div class="juan-reg-item" data-k="ult-azu">
-      <div class="titulo-fila">
-        <span class="rotulo-item">${ico('drop')}Tu última azúcar${ctx ? ' (' + esc(ctx) + ')' : ''}</span>
-        ${ant.badge}
-      </div>
-      <div class="juan-reg-valor">
-        <span class="v-grande ${c}">${valorTexto(mAzu)} <small>mg/dL</small></span>
-        <span class="estado ${c}"><span class="luz"></span>${ETIQUETA[c]}</span>
-      </div>
-      <p class="sub grande">${ant.cuando} a las <b>${hhmm(new Date(mAzu.ts))}</b> · anotó ${esc(mAzu.quien)}${sinSubir(mAzu) ? ' · sin subir' : ''}</p>
-      <p class="sub">${explicaEstado('azucar', c, R)}</p>
-    </div>`;
-  } else {
-    htmlAzu = `<div class="juan-reg-item vacio" data-k="ult-azu-vacio">
-      <div class="titulo-fila"><span class="rotulo-item">${ico('drop')}Tu última azúcar</span><span class="chip neutro">Sin lectura</span></div>
-      <p class="tit">Todavía no está anotado</p>
-      <p class="sub">Se anota en ayunas y 2 horas después de empezar a almorzar.</p>
-    </div>`;
-  }
-
-  // Oxígeno solo si hay un registro relevante o una indicación configurada.
-  const cCuid = estado.config.cuidados || {};
-  const indOxi = /ox[ií]geno|saturaci[oó]n|ox[ií]metro/i.test([cCuid.puede, cCuid.evitar, cCuid.limites].join(' '));
-  let htmlOxi = '';
-  if (mOxi || indOxi) {
-    if (mOxi) {
-      const c = clasificar(mOxi, R), ant = etiquetaAntiguedad(mOxi.fecha, hoy, ayer);
-      htmlOxi = `<div class="juan-reg-item" data-k="ult-oxi">
-        <div class="titulo-fila"><span class="rotulo-item">${ico('o2')}Tu último oxígeno</span>${ant.badge}</div>
-        <div class="juan-reg-valor"><span class="v-grande ${c}">${valorTexto(mOxi)}</span><span class="estado ${c}"><span class="luz"></span>${ETIQUETA[c]}</span></div>
-        <p class="sub grande">${ant.cuando} a las <b>${hhmm(new Date(mOxi.ts))}</b> · anotó ${esc(mOxi.quien)}</p>
-      </div>`;
-    } else {
-      htmlOxi = `<div class="juan-reg-item vacio" data-k="ult-oxi-vacio">
-        <div class="titulo-fila"><span class="rotulo-item">${ico('o2')}Tu último oxígeno</span><span class="chip neutro">Sin lectura</span></div>
-        <p class="tit">Todavía no está anotado</p>
-      </div>`;
-    }
-  }
-
-  return `<section class="panel juan-seccion" aria-label="Tus últimos registros">
-    <div class="titulo-fila"><h2 class="h3">${ico('pulse')}Tus últimos registros</h2><a class="mini-btn" href="#medir">Ir a Medir${ico('right')}</a></div>
-    <p class="nota">Son las lecturas anotadas en casa; no es un monitor continuo.</p>
-    <div class="juan-reg-lista">${htmlPres}${htmlAzu}${htmlOxi}</div>
+  const tipos = ['presion', 'pulso', 'azucar'];
+  const cuidados = estado.config.cuidados || {};
+  if (estado.mediciones.some((m) => m.tipo === 'oxigeno') || /ox[ií]geno|saturaci[oó]n/i.test([cuidados.puede, cuidados.evitar, cuidados.limites].join(' '))) tipos.push('oxigeno');
+  const lecturas = tipos.map((t) => ({ tipo: t, m: estado.mediciones.find((m) => m.tipo === t) }));
+  const existentes = lecturas.filter((x) => x.m);
+  const colores = existentes.map((x) => clasificar(x.m, R));
+  const viejos = existentes.some((x) => x.m.fecha !== hoy);
+  const faltan = existentes.length < lecturas.length;
+  const color = colores.includes('rojo') ? 'rojo' : colores.includes('amarillo') ? 'amarillo' : viejos || faltan ? 'neutro' : 'verde';
+  const titulo = color === 'rojo' || color === 'amarillo' ? 'Hay registros para revisar' : viejos ? 'Hay lecturas de días anteriores' : faltan ? 'Faltan lecturas por anotar' : 'Últimas lecturas en rango';
+  const icono = color === 'verde' ? 'check' : color === 'neutro' ? 'clock' : 'alert';
+  return `<section class="panel juan-seccion juan-vitales" aria-label="Tus últimos registros">
+    <div class="juan-estado-visual ${color}">
+      <div class="juan-aro" aria-hidden="true"><svg viewBox="0 0 80 80"><circle class="ja-fondo" cx="40" cy="40" r="33"/><circle class="ja-orbita" cx="40" cy="40" r="33"/></svg>${ico(icono)}</div>
+      <div><p class="nota">Tus últimos registros</p><h2 class="h3">${titulo}</h2></div>
+    </div>
+    <div class="juan-reg-grid">${lecturas.map(({tipo, m}) => {
+      const c = m ? clasificar(m, R) : 'neutro';
+      const fecha = !m ? 'Todavía sin registro' : (m.fecha === hoy ? 'Hoy' : m.fecha === ayer ? 'Ayer' : fechaCorta(deClave(m.fecha))) + ' · ' + hhmm(new Date(m.ts));
+      const contexto = tipo === 'azucar' && m ? ({ayunas:'En ayunas',despues:'Después de comer',antes:'Antes de comer'}[m.momento] || 'Contexto en Medir') : '';
+      return `<a class="juan-lectura" href="#medir/${tipo}" data-k="juan-ultima-${tipo}">
+        <span class="rotulo-item">${ico(TIPOS[tipo].icono)}${TIPOS[tipo].nombre}</span>
+        <span class="v-grande ${c}">${m ? valorTexto(m) : '—'}${m && tipo === 'azucar' ? '<small> mg/dL</small>' : m && tipo === 'pulso' ? '<small> lpm</small>' : m && tipo === 'oxigeno' ? '<small> %</small>' : ''}</span>
+        <span class="estado ${c}">${m ? ETIQUETA[c] : 'Sin datos'}</span>
+        ${contexto ? `<span class="nota">${contexto}</span>` : ''}<span class="nota">${esc(fecha)}${sinSubir(m) ? ' · sin subir' : ''}</span>
+      </a>`;
+    }).join('')}</div>
+    <details class="comida-menu"><summary>Cómo leer mis registros</summary><p class="sub">${R.provisorio ? 'Se comparan con rangos generales de referencia.' : 'Se comparan con los rangos configurados.'} Son lecturas anotadas, no un monitor en vivo ni una evaluación completa del corazón. Toca un valor para ver el contexto y quién lo anotó.</p></details>
   </section>`;
 }
 
@@ -215,7 +149,6 @@ function bloqueAhoraTeToca(hoy, ahoraHM, items) {
       <h2 class="h3">${ico('clock')}Ahora te toca</h2>
       <span class="chip ${yaEnHora ? 'amb' : 'neutro'}">${yaEnHora ? `Desde las ${actual.info.hora}` : `Próximo · ${actual.info.hora}`}</span>
     </div>
-    ${recienHecho ? `<p class="firma">${ico('check')}Ya quedó anotado: <b>${esc(recienHecho.info.titulo)}</b> (${esc(recienHecho.info.hechoTxt.replace(/^Ya quedó anotado\s*/i, ''))}).</p>` : ''}
     <div class="juan-toca-principal">
       <div class="cabeza">
         <span class="ic ${actual.info.clsIc}">${ico(actual.info.icono)}</span>
@@ -246,22 +179,11 @@ export function render() {
   const sinc = estadoSincDiscreto();
 
   return `<div class="envoltura juan-portada">
-    <section class="panel juan-hola" aria-label="Saludo y estado del día">
-      <div class="titulo-fila">
-        <div>
-          <p class="saludo">Tu cuaderno personal</p>
-          <h2 class="h2">Hola, Juan</h2>
-        </div>
-        <span class="chip ${sinc.cls}">${ico(sinc.icono)}${esc(sinc.txt)}</span>
-      </div>
+    <div class="juan-cabecera" aria-label="Fecha y sincronización">
       <p class="fecha">${fechaLarga(deClave(dia))}</p>
-      <a class="acompana" href="#agenda">
-        ${ico('user')}
-        <span>${modo === 'hoy' ? 'Hoy te acompaña' : 'Te acompaña'}: <b>${acompana ? esc(acompana) : 'sin asignar en la agenda'}</b></span>
-        ${ico('right', 'flecha')}
-      </a>
-      ${tiraSemana(hoy, dia)}
-    </section>
+      <span class="chip ${sinc.cls}">${ico(sinc.icono)}${esc(sinc.cls === 'ok' ? 'Actualizado' : sinc.txt)}</span>
+      <details class="comida-menu"><summary>Ver otro día</summary>${tiraSemana(hoy, dia)}<p class="nota">Cuaderno ${sena(estado.familia)}</p></details>
+    </div>
 
     ${modo !== 'hoy' ? `<div class="panel otro-dia">
       <p class="sub">${dia === ayer ? 'Estás mirando el día de ayer.' : modo === 'pasado' ? 'Estás mirando un día anterior.' : 'Estás mirando un día futuro.'}</p>
@@ -270,8 +192,9 @@ export function render() {
 
     ${modo === 'hoy' ? bloqueUltimosRegistros(hoy, ayer) : ''}
     ${modo === 'hoy' ? bloqueAhoraTeToca(hoy, ahoraHM, items) : ''}
-    ${modo === 'hoy' ? resumenCuidadosPortada() : ''}
     ${modo === 'hoy' ? resumenCorazonPortada() : ''}
+    ${modo === 'hoy' ? resumenCuidadosPortada() : ''}
     ${bloqueLineaDia(dia, modo, ahoraHM, anotable, items, 'Mi día')}
+    <a class="acompana" href="#agenda">${ico('user')}<span>Te acompaña: <b>${acompana ? esc(acompana) : 'sin asignar'}</b></span>${ico('right', 'flecha')}</a>
   </div>`;
 }
