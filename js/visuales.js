@@ -37,7 +37,7 @@ function ui(grupo, inicial = 0) {
 }
 export function infografia(grupo, inicial = 0) {
  const lista=TEMAS[grupo]||TEMAS.corazon,u=ui(grupo,inicial),paso=lista[u.paso]?u.paso:0,tema=lista[paso],ruta=RECORRIDOS[grupo][paso],etapa=Number.isInteger(u.etapa)?u.etapa:0,f=FUENTES[tema.fuente];
- const voz=typeof window.speechSynthesis!=='undefined'&&typeof window.SpeechSynthesisUtterance!=='undefined';
+ const voz=!!ruta.audio;
  const cuidado=u.comparar==='cuidar'&&ruta.cuidado;
  const visible=cuidado?{...ruta,pasos:ruta.cuidado}:ruta;
  return `<section class="panel cv-infografia rj-player${u.pausa?' cv-pausada':''}" data-k="infografia-${grupo}" aria-label="Explicación visual">
@@ -52,19 +52,20 @@ export function infografia(grupo, inicial = 0) {
  <button class="btn quieto" data-a="parteVisual" data-grupo="${grupo}" data-v="3" aria-pressed="${etapa===3}">Ver recorrido completo</button>
  ${etapa===3&&ruta.comparacion?`<div class="rj-compare"><button class="rj-avoid" data-a="compararVisual" data-grupo="${grupo}" data-v="evitar" aria-pressed="${!cuidado}"><b>${ico('alert')}Para evitar</b><p>${esc(ruta.comparacion.evitar)}</p></button><button class="rj-care" data-a="compararVisual" data-grupo="${grupo}" data-v="cuidar" aria-pressed="${!!cuidado}"><b>${ico('check')}Para cuidarme</b><p>${esc(ruta.comparacion.cuidar)}</p></button><p class="nota">${esc(ruta.comparacion.nota)}</p></div>`:''}
 
+ ${u.requiereToque?'<p class="nota" role="status">Toca Continuar para seguir escuchando.</p>':''}
  ${u.final?'<p class="nota" role="status">Terminó la explicación. Puedes repetirla o tocar una parte.</p>':''}
- ${u.errorVoz?'<p class="nota" role="status">No se pudo reproducir la voz. Puedes ver la animación y leer el relato.</p>':''}
+ ${u.errorVoz?'<p class="nota" role="status">No se pudo reproducir el audio. Revisa la conexión y vuelve a tocar Escuchar; también puedes leer la explicación.</p>':''}
  <p class="nota cv-aclaracion">Ilustración educativa · no muestra tu estado actual.</p>
  <details class="comida-menu" data-k="relato-${grupo}-${paso}"><summary>Leer la explicación</summary>${ruta.voz.map(t=>`<p class="sub">${esc(t.replace(/\[[^\]]+\]/g,'').trim())}</p>`).join('')}<p class="nota"><a class="enlace" href="${esc(f[1])}" target="_blank" rel="noopener">${esc(f[0])}</a></p></details>
  </section>`;
 }
 
-let secuencia=0,reloj=null,grupoActivo=null,locucion=null;
+let secuencia=0,reloj=null,grupoActivo=null;
 function detener() {
  secuencia++;clearTimeout(reloj);reloj=null;
- if(window.speechSynthesis)window.speechSynthesis.cancel();
- Object.values(estado.ui.infografias||{}).forEach(u=>{u.modo=null;u.pausa=false;});
- grupoActivo=null;locucion=null;
+ reproductor.onended=null;reproductor.ontimeupdate=null;reproductor.onerror=null;reproductor.onloadedmetadata=null;reproductor.pause();reproductor.removeAttribute('src');reproductor.load();
+ Object.values(estado.ui.infografias||{}).forEach(u=>{u.modo=null;u.pausa=false;u.requiereToque=false;});
+ grupoActivo=null;
 }
 function enfocar(g) { requestAnimationFrame(()=>{const el=document.querySelector('[data-k="infografia-'+g+'"] .rj-heading');if(el)el.scrollIntoView({block:'start',behavior:'auto'});}); }
 export function detenerRecorridos() { detener(); }
@@ -79,23 +80,36 @@ function animar(g,token) {
   if(u.etapa<3){u.etapa++;pintar();animar(g,token);}else{u.modo=null;u.final=true;grupoActivo=null;pintar();}
  },u.etapa===3?6500:4500);
 }
+const reproductor=new Audio();
+reproductor.preload='auto';
+reproductor.setAttribute('playsinline','');
 function decir(g,token) {
  if(token!==secuencia||grupoActivo!==g)return;
- const u=ui(g),ruta=RECORRIDOS[g][u.paso];
+ const u=ui(g),pasoAudio=u.paso,ruta=RECORRIDOS[g][pasoAudio];
  if(u.pausa)return;
- const v=new SpeechSynthesisUtterance(ruta.voz[u.etapa].replace(/\[[^\]]+\]/g,'').trim());locucion=v;
- v.lang='es-CL';v.rate=.9;
- v.onend=()=>{
-  if(token!==secuencia)return;
-  locucion=null;
-  if(u.etapa<3)u.etapa++;
-  else if(u.paso<RECORRIDOS[g].length-1){u.paso++;u.etapa=0;enfocar(g);}
-  else {u.modo=null;u.final=true;grupoActivo=null;pintar();return;}
-  pintar();if(!u.pausa)decir(g,token);
+ const actual=()=>token===secuencia&&grupoActivo===g&&u.paso===pasoAudio&&u.modo==='voz';
+ const fallo=()=>{if(!actual())return;detener();u.errorVoz=true;pintar();};
+ reproductor.onloadedmetadata=()=>{if(actual()&&Number.isFinite(reproductor.duration)&&reproductor.duration>0)u.duracionAudio=reproductor.duration;};
+ reproductor.ontimeupdate=()=>{
+  if(!actual())return;
+  const t=reproductor.currentTime,etapa=ruta.audio.inicios.reduce((acc,inicio,i)=>t>=inicio?i:acc,0);
+  if(etapa!==u.etapa){u.etapa=etapa;pintar();}
  };
- v.onerror=()=>{if(token!==secuencia)return;detener();u.errorVoz=true;pintar();};
- try{window.speechSynthesis.speak(v);}catch(e){detener();u.errorVoz=true;pintar();}
+ reproductor.onended=()=>{
+  if(!actual())return;
+  if(u.paso<RECORRIDOS[g].length-1){u.paso++;u.etapa=0;u.comparar=null;pintar();enfocar(g);decir(g,token);}
+  else {u.modo=null;u.final=true;u.etapa=3;grupoActivo=null;pintar();}
+ };
+ reproductor.onerror=fallo;
+ reproductor.src=new URL('../audios/juan/'+ruta.archivo+'.mp3',import.meta.url).href;
+ const promesa=reproductor.play();
+ if(promesa&&promesa.catch)promesa.catch(error=>{
+  if(!actual())return;
+  if(error.name==='NotAllowedError'){u.pausa=true;u.requiereToque=true;pintar();}
+  else fallo();
+ });
 }
+
 acciones.conceptoVisual=d=>{
  if(!valido(d.grupo)||!RECORRIDOS[d.grupo][Number(d.v)])return;
  detener();const u=ui(d.grupo);Object.assign(u,{paso:Number(d.v),etapa:0,comparar:null,final:false,errorVoz:false});pintar();enfocar(d.grupo);
@@ -113,14 +127,13 @@ acciones.siguienteVisual=d=>{
  else if(modo==='animacion'&&!pausa)acciones.animarVisual(d);
 };
 acciones.animarVisual=d=>{if(!valido(d.grupo))return;const token=preparar(d.grupo,'animacion');pintar();enfocar(d.grupo);animar(d.grupo,token);};
-acciones.vozVisual=d=>{if(!valido(d.grupo)||!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;const token=preparar(d.grupo,'voz');pintar();enfocar(d.grupo);decir(d.grupo,token);};
+acciones.vozVisual=d=>{if(!valido(d.grupo))return;const token=preparar(d.grupo,'voz');pintar();enfocar(d.grupo);decir(d.grupo,token);};
 acciones.pausaVisual=d=>{
  if(!valido(d.grupo)||grupoActivo!==d.grupo)return;
  const u=ui(d.grupo);u.pausa=!u.pausa;
  if(u.modo==='voz'){
-  if(u.pausa)window.speechSynthesis.pause();
-  else if(locucion)window.speechSynthesis.resume();
-  else decir(d.grupo,secuencia);
+  if(u.pausa)reproductor.pause();
+  else {u.requiereToque=false;const token=secuencia;const promesa=reproductor.play();if(promesa&&promesa.catch)promesa.catch(()=>{if(token!==secuencia)return;u.pausa=true;u.requiereToque=true;pintar();});}
  }else{clearTimeout(reloj);if(!u.pausa)animar(d.grupo,secuencia);}
  pintar();
 };
