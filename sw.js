@@ -1,9 +1,9 @@
 // Service worker: deja la app guardada en el celular para que abra aunque no haya señal.
 // Los datos los guarda Firestore por su cuenta (caché sin conexión).
-const VERSION = 'cuaderno-v9';
+const VERSION = 'cuaderno-v10';
 const ARCHIVOS = [
   './', 'index.html', 'manifest.json', 'css/estilos.css',
-  'js/visuales.js',
+  'js/visuales.js', 'js/recorridos.js',
   'js/vistas/nutricion.js',
   'js/app.js', 'js/config.js', 'js/datos.js', 'js/db.js', 'js/guias.js', 'js/nucleo.js', 'js/plan.js', 'js/util.js', 'js/alimentos.js', 'js/vistas/consulta-comida.js',
   'js/vistas/hoy.js', 'js/vistas/portada.js', 'js/vistas/corazon.js', 'js/vistas/medir.js', 'js/vistas/comidas.js', 'js/vistas/agenda.js', 'js/vistas/cuidados.js', 'js/vistas/emergencia.js', 'js/vistas/ajustes.js', 'js/vistas/resumen.js',
