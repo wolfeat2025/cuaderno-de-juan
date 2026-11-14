@@ -63,16 +63,22 @@ const lista = (snap) => snap.docs.map((d) => Object.assign({ id: d.id, _pend: d.
 const META = { includeMetadataChanges: true };
 
 // Escucha en vivo. `desde` es una fecha 'AAAA-MM-DD': se traen tomas, mediciones y planes desde ese día.
+// Antes de entregar los datos de cada escucha se avisa su estado con m.sinc(nombre, pendiente, deCache):
+// `pendiente` cubre también los borrados y los cambios de ajustes, que no dejan un registro a la vista.
 export function escuchar(desde, lunes, m) {
   const bajas = [];
   const err = (e) => { console.error('Firestore', e); if (m.error) m.error(e); };
-  bajas.push(onSnapshot(refConfig(), META, (s) => m.config(s.exists() ? s.data() : null, s.metadata.fromCache), err));
-  bajas.push(onSnapshot(query(col('config'), where('fecha', '>=', desde)), (s) => m.planes(lista(s)), err));
-  bajas.push(onSnapshot(query(col('tomas'), where('fecha', '>=', desde)), META, (s) => m.tomas(lista(s)), err));
-  bajas.push(onSnapshot(query(col('mediciones'), where('fecha', '>=', desde)), META, (s) => m.mediciones(lista(s)), err));
-  bajas.push(onSnapshot(query(col('turnos'), where('fecha', '>=', lunes)), (s) => m.turnos(lista(s)), err));
-  bajas.push(onSnapshot(col('compras'), META, (s) => m.compras(lista(s)), err));
-  bajas.push(onSnapshot(col('citas'), (s) => m.citas(lista(s)), err));
+  const oir = (nombre, consulta, entregar) => bajas.push(onSnapshot(consulta, META, (s) => {
+    if (m.sinc) m.sinc(nombre, s.metadata.hasPendingWrites, s.metadata.fromCache);
+    entregar(s);
+  }, err));
+  oir('config', refConfig(), (s) => m.config(s.exists() ? s.data() : null, s.metadata.fromCache));
+  oir('planes', query(col('config'), where('fecha', '>=', desde)), (s) => m.planes(lista(s)));
+  oir('tomas', query(col('tomas'), where('fecha', '>=', desde)), (s) => m.tomas(lista(s)));
+  oir('mediciones', query(col('mediciones'), where('fecha', '>=', desde)), (s) => m.mediciones(lista(s)));
+  oir('turnos', query(col('turnos'), where('fecha', '>=', lunes)), (s) => m.turnos(lista(s)));
+  oir('compras', col('compras'), (s) => m.compras(lista(s)));
+  oir('citas', col('citas'), (s) => m.citas(lista(s)));
   return () => bajas.forEach((f) => f());
 }
 

@@ -13,7 +13,10 @@ export const estado = {
   planes: {},            // 'AAAA-MM-DD' -> copia del plan de ese dia
   planesListos: false,
   pendientes: 0,         // registros guardados aqui que aun no suben
+  hayPend: false,        // hay algun cambio (registro, borrado o ajuste) que aun no sube
   pendDesde: 0,
+  sinc: {},              // por cada escucha: { pend: cambios sin subir, cache: datos solo de este aparato }
+  errorSinc: '',         // codigo del error si se corto la lectura en vivo
   ahora: new Date(),
   fase: 'cargando',      // cargando | configurar | bienvenida | quien | app | error
   error: '',
@@ -50,6 +53,20 @@ export function aviso(texto, deshacer) {
 }
 export function cerrarAviso() { clearInterval(reloj); alDeshacer = null; porId('aviso').classList.remove('on'); }
 export function ejecutarDeshacer() { const f = alDeshacer; cerrarAviso(); if (f) f(); }
+
+// Cómo llamar a este aparato en los mensajes.
+export const APARATO = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 'celular' : 'computador';
+
+// Seña corta del cuaderno: 4 letras que salen del código de la familia sin mostrar ninguna parte de él.
+// Sirve para comprobar a simple vista que dos aparatos están en el mismo cuaderno.
+export function sena(codigo) {
+  let h = 2166136261;
+  for (let i = 0; i < codigo.length; i++) { h ^= codigo.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  for (let i = 0; i < 4; i++) { s += abc[h % 32]; h = Math.floor(h / 32); }
+  return s;
+}
 
 // Solo Fabián ve las opciones de administración. Es para simplificar la app a los demás, no una barrera de seguridad.
 export const ADMIN = 'Fabián';

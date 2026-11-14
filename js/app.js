@@ -1,7 +1,7 @@
 // El cuaderno de Juan — arranque, navegación y armazón de la app.
 import { firebaseConfig } from './config.js';
 import * as db from './db.js';
-import { estado, acciones, fijarPintar, pintar, ir, aviso, ejecutarDeshacer, guardarLocal, leerLocal, aplicarTema } from './nucleo.js';
+import { estado, acciones, fijarPintar, pintar, ir, aviso, ejecutarDeshacer, guardarLocal, leerLocal, aplicarTema, sena, APARATO } from './nucleo.js';
 import { esc, ico, igualar, porId, val, claveFecha, sumarDias, lunesDe, idAzar } from './util.js';
 import { PERSONAS, completarConfig, configInicial } from './datos.js';
 import * as hoy from './vistas/hoy.js';
@@ -45,14 +45,20 @@ const pantallaError = () => marco(`<p class="marca">El cuaderno de Juan</p><h1>N
   <p class="sub grande">${esc(estado.error)}</p><button class="btn pri" data-a="recargar">${ico('undo')}Intentar de nuevo</button>`);
 const pantallaQuien = () => marco(`<p class="marca">El cuaderno de Juan</p><h1>¿Quién eres?</h1>
   <p class="sub grande">Toca tu nombre. Queda guardado en este celular y firma lo que anotes.</p>
-  ${PERSONAS.map((p) => `<button class="btn sec gigante" data-a="elegirQuien" data-v="${p}">${ico('user')}${p}</button>`).join('')}`);
+  ${PERSONAS.map((p) => `<button class="btn sec gigante" data-a="elegirQuien" data-v="${p}">${ico('user')}${p}</button>`).join('')}
+  <p class="nota">Seña de este cuaderno: <b class="sena">${sena(estado.familia)}</b>. A toda la familia le tiene que salir la misma.</p>`);
 const pantallaBienvenida = () => marco(`<p class="marca">El cuaderno de Juan</p><h1>Falta el link de la familia</h1>
   <p class="sub grande">Abre el link que te mandaron por WhatsApp. Si lo tienes copiado, pégalo aquí.</p>
   <input class="texto" id="link-entrada" placeholder="Pega aquí el link" autocomplete="off" aria-label="Link de la familia">
   ${estado.ui.errorLink ? `<p class="error" role="alert">${ico('alert')}${esc(estado.ui.errorLink)}</p>` : ''}
   <button class="btn pri" data-a="entrarConLink">${ico('check')}Entrar</button>
-  <div class="panel"><p class="h3">¿Eres Fabián y es la primera vez?</p><p class="sub">Esto crea un cuaderno nuevo y vacío para la familia.</p>
-  <button class="btn quieto" data-a="crearCuaderno">${ico('plus')}Crear el cuaderno de la familia</button></div>`);
+  <div class="panel"><p class="h3">¿La familia todavía no tiene cuaderno?</p>
+  ${estado.ui.crear
+    ? `<p class="nota aviso-ej">${ico('alert')}Esto crea un cuaderno nuevo y vacío. No muestra lo que la familia ya anotó. Si ya existe un cuaderno, vuelve atrás y abre el link que te mandaron.</p>
+       <button class="btn sec" data-a="crearCuaderno">${ico('plus')}Sí, crear un cuaderno nuevo y vacío</button>
+       <button class="btn quieto" data-a="cancelarCrear">${ico('left')}Volver</button>`
+    : `<p class="sub">Solo Fabián, y solo la primera vez. Si la familia ya usa la app, no hace falta: se entra con el link.</p>
+       <button class="btn quieto" data-a="pedirCrear">${ico('plus')}Crear el cuaderno de la familia</button>`}</div>`);
 
 // ---------- Armazón ----------
 function armazon(r) {
@@ -60,12 +66,19 @@ function armazon(r) {
   const v = VISTAS[r.nombre] || VISTAS.hoy;
   const esEmergencia = r.nombre === 'emergencia';
   const res = r.nombre === 'hoy' ? resumenRemedios(claveFecha(estado.ahora)) : null;
-  const subiendo = estado.pendientes > 0 && estado.pendDesde && Date.now() - estado.pendDesde > 4000;
+  const subiendo = estado.hayPend && estado.pendDesde && Date.now() - estado.pendDesde > 4000;
+  const n = estado.pendientes;
+  const franja = navigator.onLine === false
+    ? `<p class="sin-senal no-imprimir">${ico('info')}Sin señal. Lo que anotes se guarda en este ${APARATO} y se sube cuando vuelva.</p>`
+    : estado.errorSinc
+      ? `<div class="sin-senal no-imprimir con-boton"><p>${ico('alert')}<span>No se pudo leer el cuaderno desde la nube. Lo que ves puede estar atrasado.</span></p><button class="btn quieto auto" data-a="reintentarSinc">${ico('undo')}Reintentar</button></div>`
+      : subiendo
+        ? `<p class="sin-senal no-imprimir">${ico('clock')}${n === 1 ? `Hay 1 registro guardado en este ${APARATO} que todavía no sube.` : n > 1 ? `Hay ${n} registros guardados en este ${APARATO} que todavía no suben.` : `Hay cambios guardados en este ${APARATO} que todavía no suben.`}</p>`
+        : '';
   const bajoTitulo = res && res.total ? `<p class="bajo-titulo">${res.faltan === 0 ? 'Remedios listos' : res.faltan === 1 ? 'Falta 1 remedio' : `Faltan ${res.faltan} remedios`}</p>` : '';
   return `<header class="tope${esEmergencia ? ' rojo' : ''}"><div class="titulos"><h1>${esc(v.titulo(r.args))}</h1>${bajoTitulo}</div>
       ${esEmergencia ? '' : `<a class="sos" href="#emergencia">${ico('phone')}Emergencia</a>`}</header>
-    ${navigator.onLine === false ? `<p class="sin-senal no-imprimir">${ico('info')}Sin señal. Lo que anotes se guarda en este celular y se sube cuando vuelva.</p>`
-      : subiendo ? `<p class="sin-senal no-imprimir">${ico('clock')}${estado.pendientes === 1 ? 'Hay 1 registro guardado en este celular que todavía no sube.' : `Hay ${estado.pendientes} registros guardados en este celular que todavía no suben.`}</p>` : ''}
+    ${franja}
     <main id="vista" data-k="${esc(r.completa)}">${v.render(r.args)}</main>
     <nav class="pestanas" aria-label="Secciones"><p class="marca-nav solo-pc"><span class="ic">${ico('pill')}</span>El cuaderno<br>de Juan</p>
       ${PESTANAS.map(([id, icono, nombre]) => { const on = v.pestana === id || (id === 'agenda' && v.pestana === 'ajustes'); return `<a href="#${id}" class="${v.pestana === id ? 'on' : on ? 'on-movil' : ''}"${on ? ' aria-current="page"' : ''}>${ico(icono)}${nombre}</a>`; }).join('')}
@@ -103,6 +116,9 @@ acciones.elegirQuien = (d) => {
   estado.quien = d.v; guardarLocal('cj_quien', d.v);
   if (d.volver) { aviso(`Este celular ahora es de ${d.v}`); ir(d.volver); } else { estado.ui.irAhora = true; pintar(); }
 };
+acciones.pedirCrear = () => { estado.ui.crear = true; pintar(); };
+acciones.cancelarCrear = () => { estado.ui.crear = false; pintar(); };
+acciones.reintentarSinc = () => { estado.errorSinc = ''; suscribir(); pintar(); };
 acciones.crearCuaderno = () => { const c = idAzar(28); guardarLocal('cj_familia', c); location.href = `${location.pathname}?f=${c}${sufijoEmu}`; };
 acciones.entrarConLink = () => {
   const crudo = val('link-entrada'), m = crudo.match(/[?&]f=([A-Za-z0-9]+)/);
@@ -143,29 +159,40 @@ function suscribir() {
   if (darDeBaja) darDeBaja();
   const ahora = new Date();
   diaSuscrito = claveFecha(ahora);
+  estado.errorSinc = '';
   darDeBaja = db.escuchar(claveFecha(sumarDias(ahora, -8)), claveFecha(lunesDe(ahora)), {
+    sinc: (nombre, pend, cache) => { estado.sinc[nombre] = { pend, cache }; },
     config: (datos, deCache) => {
       if (datos) { estado.config = completarConfig(datos); asegurarPlanHoy(); }
       else if (!deCache) db.guardarConfig(configInicial());   // primer uso: crear el cuaderno con los valores iniciales
-      pintar();
+      contarPendientes(); pintar();
     },
     planes: (lista) => { estado.planes = {}; lista.forEach((p) => { estado.planes[p.fecha] = p; }); estado.planesListos = true; asegurarPlanHoy(); pintar(); },
     tomas: (lista) => { estado.tomas = {}; lista.forEach((t) => { estado.tomas[t.id] = t; }); contarPendientes(); pintar(); },
     mediciones: (lista) => { estado.mediciones = lista.sort((a, b) => b.ts - a.ts); contarPendientes(); pintar(); },
-    turnos: (lista) => { estado.turnos = {}; lista.forEach((t) => { estado.turnos[t.fecha] = t.quien; }); pintar(); },
+    turnos: (lista) => { estado.turnos = {}; lista.forEach((t) => { estado.turnos[t.fecha] = t.quien; }); contarPendientes(); pintar(); },
     compras: (lista) => { estado.compras = lista; contarPendientes(); pintar(); },
-    citas: (lista) => { estado.citas = lista; pintar(); },
-    error: (e) => { if (e && e.code === 'permission-denied') { estado.fase = 'error'; estado.error = 'Este link no tiene permiso. Pide el link de nuevo a Fabián.'; pintar(); } },
+    citas: (lista) => { estado.citas = lista; contarPendientes(); pintar(); },
+    error: (e) => {
+      if (e && e.code === 'permission-denied') { estado.fase = 'error'; estado.error = 'Este link no tiene permiso. Pide el link de nuevo a Fabián.'; }
+      else estado.errorSinc = (e && e.code) || 'error';   // se cortó la lectura en vivo: se avisa y se puede reintentar
+      pintar();
+    },
   });
 }
-// Cuenta lo que está guardado en este celular y todavía no sube a la nube.
+// Cuenta lo que está guardado en este aparato y todavía no sube a la nube.
+// `pendientes` son registros a la vista; `hayPend` incluye además borrados y cambios de ajustes, turnos y fechas.
+// La copia automática del plan del día no cuenta: no es algo que haya anotado una persona.
+const ESCUCHAS = ['config', 'tomas', 'mediciones', 'turnos', 'compras', 'citas'];
 function contarPendientes() {
   let n = 0;
   Object.keys(estado.tomas).forEach((id) => { if (estado.tomas[id]._pend) n++; });
   estado.mediciones.forEach((m) => { if (m._pend) n++; });
   estado.compras.forEach((c) => { if (c._pend) n++; });
+  estado.citas.forEach((c) => { if (c._pend) n++; });
   estado.pendientes = n;
-  if (!n) estado.pendDesde = 0;
+  estado.hayPend = n > 0 || ESCUCHAS.some((k) => estado.sinc[k] && estado.sinc[k].pend);
+  if (!estado.hayPend) estado.pendDesde = 0;
   else if (!estado.pendDesde) { estado.pendDesde = Date.now(); setTimeout(pintar, 4200); }
 }
 function revisarDia() { if (darDeBaja && claveFecha(new Date()) !== diaSuscrito) suscribir(); }
@@ -187,7 +214,8 @@ function arrancar() {
   if (window.navigator.standalone && location.hash && location.hash !== '#hoy') history.replaceState(null, '', location.pathname + location.search + '#hoy');
   pintar();
 
-  db.alFallarEscritura((e) => { if (e && e.code === 'permission-denied') aviso('No se pudo guardar: este link no tiene permiso.'); });
+  // Si la nube rechaza un cambio, Firestore lo deshace en pantalla: hay que decirlo siempre, no solo cuando falta permiso.
+  db.alFallarEscritura((e) => aviso(e && e.code === 'permission-denied' ? 'No se pudo guardar: este link no tiene permiso.' : 'No se pudo guardar en la nube. Revisa si quedó anotado y vuelve a intentarlo.'));
   try {
     db.iniciar(EMULADOR ? { apiKey: 'demo', authDomain: 'demo-cuaderno.firebaseapp.com', projectId: 'demo-cuaderno', appId: 'demo' } : firebaseConfig, EMULADOR);
   } catch (e) { estado.fase = 'error'; estado.error = 'La configuración de Firebase no es válida. Revisa js/config.js.'; pintar(); return; }

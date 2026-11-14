@@ -2,8 +2,8 @@
 import { estado, acciones, pintar } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, claveFecha, deClave, sumarDias, lunesDe, hhmm, fechaLarga, fechaCorta, DIAS, MESES, mayus } from '../util.js';
-import { TIPOS, ORDEN_TIPOS, ETIQUETA, clasificar, valorTexto, detalleMomento } from '../datos.js';
-import { itemsDelDia, resumenRemedios } from '../plan.js';
+import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, valorTexto, detalleMomento } from '../datos.js';
+import { itemsDelDia, resumenRemedios, medicionesDeTarea } from '../plan.js';
 import { anillo } from './hoy.js';
 
 const R = { periodo: 'todo', clave: '', datos: null, cargando: false, error: '', rep: { modo: 'dia', fecha: '', clave: '', datos: null, cargando: false } };
@@ -47,7 +47,7 @@ function tarjetaTipo(t, d, ini, fin) {
     const alta = ms.slice().sort((a, b) => b.valor - a.valor)[0], baja = ms.slice().sort((a, b) => a.valor - b.valor)[0];
     cifras = dato('Promedio', `${prom(ms.map((m) => Number(m.valor)))}/${prom(ms.map((m) => Number(m.valor2)))}`) + dato('Más baja', valorTexto(baja)) + dato('Más alta', valorTexto(alta));
   } else if (t === 'azucar') {
-    const ay = ms.filter((m) => m.momento !== 'despues').map((m) => Number(m.valor)), de = ms.filter((m) => m.momento === 'despues').map((m) => Number(m.valor));
+    const ay = ms.filter((m) => m.momento !== 'despues' && m.momento !== 'antes').map((m) => Number(m.valor)), de = ms.filter((m) => m.momento === 'despues').map((m) => Number(m.valor));
     cifras = dato('Promedio en ayunas', ay.length ? prom(ay) : '—') + dato('Promedio después de comer', de.length ? prom(de) : '—');
   } else {
     const vs = ms.map((m) => Number(m.valor));
@@ -87,7 +87,7 @@ function panel() {
     return `<span class="barra-dia ${cls}" style="height:${alto}%" title="${fechaCorta(deClave(f))}: ${r.dados} de ${r.total}"></span>`;
   }).join('');
   dias.forEach((f) => itemsDelDia(f, d).filter((i) => i.tipo === 'comida').forEach((i) => {
-    const reg = d.tomas[i.id]; if (reg) cuenta[reg.comio] = (cuenta[reg.comio] || 0) + 1; else if (f < hoy || i.hora <= ahoraHM) cuenta.sin++;
+    const reg = d.tomas[i.id]; if (reg) cuenta[reg.comio] = (cuenta[reg.comio] || 0) + 1; else if (!i.opcional && (f < hoy || i.hora <= ahoraHM)) cuenta.sin++;
   }));
   const totalCom = cuenta.todo + cuenta.parte + cuenta.nada + cuenta.sin;
   const tramo = (k, cls) => (cuenta[k] ? `<span class="tramo ${cls}" style="flex:${cuenta[k]}"></span>` : '');
@@ -133,14 +133,15 @@ const sinReg = '<span class="sin">Sin registro</span>', aunNo = '<span class="si
 const estadoTxt = (m) => { const c = clasificar(m, estado.config.rangos); return `<span class="estado ${c} en-linea">${ETIQUETA[c]}</span>`; };
 
 function seccionesDia(f, d) {
-  const items = itemsDelDia(f, d), meds = items.filter((i) => i.tipo === 'med'), comidas = items.filter((i) => i.tipo === 'comida');
+  const items = itemsDelDia(f, d), meds = items.filter((i) => i.tipo === 'med'), comidas = items.filter((i) => i.tipo === 'comida'), rutina = items.filter((i) => i.tipo === 'tarea');
   const ms = d.mediciones.filter((m) => m.fecha === f).sort((a, b) => a.ts - b.ts);
   const conReg = meds.filter((i) => d.tomas[i.id]).length, comReg = comidas.filter((i) => d.tomas[i.id]).length;
   const hoy = claveFecha(estado.ahora), ahoraHM = hhmm(estado.ahora), falta = (i) => (f > hoy || (f === hoy && i.hora > ahoraHM) ? aunNo : sinReg);
   return `<div class="cifras"><div><b>${conReg} de ${meds.length}</b><span>tomas con registro</span></div><div><b>${ms.length}</b><span>${ms.length === 1 ? 'medición' : 'mediciones'}</span></div><div><b>${comReg} de ${comidas.length}</b><span>comidas con registro</span></div></div>
     <h3>Remedios</h3>${tabla(['Hora', 'Remedio', 'Dosis', 'Registro'], meds.map((i) => { const t = d.tomas[i.id]; return [i.hora, esc(i.r.nombre), esc(i.r.dosis || '—'), t ? `Dado a las ${hhmm(new Date(t.ts))} · ${esc(t.quien)}${t.corregido ? ' (hora corregida)' : ''}` : falta(i)]; }))}
+    ${rutina.length ? `<h3>Rutina de mediciones</h3>${tabla(['Hora prevista', 'Tarea', 'Registro'], rutina.map((i) => { const r = medicionesDeTarea(f, i.tid, d); return [i.hora, TAREAS[i.tid].nombre, r.length ? r.map((m) => `<b>${valorTexto(m)}</b> a las ${hhmm(new Date(m.ts))} · ${esc(m.quien)}`).join('<br>') : falta(i)]; }))}` : ''}
     <h3>Mediciones</h3>${tabla(['Hora', 'Medición', 'Valor', 'Según rangos', 'Anotó', 'Nota'], ms.map((m) => [hhmm(new Date(m.ts)), TIPOS[m.tipo].nombre + (detalleMomento(m) ? ` (${detalleMomento(m)})` : ''), `<b>${valorTexto(m)}</b>${TIPOS[m.tipo].unidad && m.tipo !== 'oxigeno' ? ' ' + TIPOS[m.tipo].unidad : ''}`, estadoTxt(m), esc(m.quien), esc([m.animo ? `Se siente ${m.animo.toLowerCase()}` : '', m.nota || '', m.despues ? 'Anotado después' : ''].filter(Boolean).join('. ') || '—')]))}
-    <h3>Comidas</h3>${tabla(['Hora', 'Comida', 'Previsto', 'Porción indicada', 'Lo que comió'], comidas.map((i) => { const t = d.tomas[i.id]; return [i.hora, i.nombre, esc(i.texto || '—'), esc(i.porciones ? i.porciones.split('\n').join('; ') : 'Pendiente de indicar'), t ? `${COMIO[t.comio] || 'Anotado'}${t.nota ? ` · ${esc(t.nota)}` : ''} · ${esc(t.quien)}` : falta(i)]; }))}`;
+    <h3>Comidas</h3>${tabla(['Hora', 'Comida', 'Previsto', 'Porción indicada', 'Lo que comió'], comidas.map((i) => { const t = d.tomas[i.id]; return [i.hora, i.nombre, esc(i.texto || '—'), esc(i.porciones ? i.porciones.split('\n').join('; ') : 'Pendiente de indicar'), t ? `${COMIO[t.comio] || 'Anotado'}${t.nota ? ` · ${esc(t.nota)}` : ''} · ${esc(t.quien)}` : i.opcional ? 'Opcional · sin registro' : falta(i)]; }))}`;
 }
 
 function seccionesSemana(lunes, d) {
@@ -149,7 +150,7 @@ function seccionesSemana(lunes, d) {
   const celdaTipo = (f, t) => d.mediciones.filter((m) => m.fecha === f && m.tipo === t).sort((a, b) => a.ts - b.ts).map((m) => `${hhmm(new Date(m.ts))} <b>${valorTexto(m)}</b>`).join('<br>') || '—';
   const filas = dias.map((f) => {
     if (f > hoy) return [fechaCorta(deClave(f)), '<span class="sin">Aún no llega</span>', '', '', '', '', ''];
-    const r = resumenRemedios(f, d), com = itemsDelDia(f, d).filter((i) => i.tipo === 'comida');
+    const r = resumenRemedios(f, d), com = itemsDelDia(f, d).filter((i) => i.tipo === 'comida' && (!i.opcional || d.tomas[i.id]));
     const c = { todo: 0, parte: 0, nada: 0 }; com.forEach((i) => { const t = d.tomas[i.id]; if (t) c[t.comio]++; });
     const vienen = f === hoy ? com.filter((i) => !d.tomas[i.id] && i.hora > hhmm(estado.ahora)).length : 0;
     return [`<b>${fechaCorta(deClave(f))}</b>`, r.total ? `${r.dados} de ${r.total}` : '—', celdaTipo(f, 'presion'), celdaTipo(f, 'pulso'), celdaTipo(f, 'azucar'), celdaTipo(f, 'oxigeno'), com.length ? `Todo ${c.todo} · Parte ${c.parte} · Nada ${c.nada} · Sin registro ${com.length - c.todo - c.parte - c.nada - vienen}${vienen ? ` · Por venir ${vienen}` : ''}` : '—'];

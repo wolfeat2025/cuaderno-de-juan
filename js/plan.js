@@ -4,12 +4,14 @@
 import { estado } from './nucleo.js';
 import * as db from './db.js';
 import { claveFecha, deClave, hhmm, DIAS_K } from './util.js';
-import { COMIDAS } from './datos.js';
+import { COMIDAS, COLACIONES, colacionesDe, TAREAS, rutinaDe, tareaDe } from './datos.js';
 
 export const tomaId = (fecha, remedioId, hora) => `${fecha}_${remedioId}_${hora.replace(':', '')}`;
 export const comidaId = (fecha, k) => `${fecha}_comida_${k}`;
 export const INFO_COMIDA = {};
 COMIDAS.forEach(([k, nombre, icono]) => { INFO_COMIDA[k] = { nombre, icono }; });
+
+COLACIONES.forEach(([k, nombre]) => { INFO_COMIDA[k] = { nombre, icono: 'apple', opcional: true }; });
 
 export function planDesdeConfig(fecha) {
   const c = estado.config, dk = DIAS_K[deClave(fecha).getDay()];
@@ -19,13 +21,17 @@ export function planDesdeConfig(fecha) {
     if (h) meds.push({ rid: r.id, nombre: r.nombre, dosis: r.dosis || '', paraQue: r.paraQue || '', hora: h });
   }));
   const comidas = COMIDAS.filter(([k]) => menu[k]).map(([k]) => ({ k, hora: c.horasComida[k] || '12:00', texto: menu[k], porciones: porciones[k] || '' }));
-  return { fecha, meds, comidas, medir: (c.medirHoras || []).filter(Boolean) };
+  comidas.push(...colacionesDe(c));
+  // `rutina` son las tareas de medición del día. `medir` es el formato anterior (dos horas sueltas):
+  // ya no se llena, pero los días guardados antes lo traen y se siguen mostrando igual.
+  return { fecha, meds, comidas, medir: [], rutina: rutinaDe(c) };
 }
 
 const firma = (p) => [
   (p.meds || []).map((m) => [m.rid, m.nombre, m.dosis, m.paraQue, m.hora].join('|')).join(';'),
-  (p.comidas || []).map((c) => [c.k, c.hora, c.texto, c.porciones].join('|')).join(';'),
+  (p.comidas || []).map((c) => [c.k, c.hora, c.texto, c.porciones, !!c.opcional].join('|')).join(';'),
   (p.medir || []).join(','),
+  (p.rutina || []).map((t) => t.id + '@' + t.hora).join(','),
 ].join('#');
 
 // Guarda (o actualiza) la copia del plan de hoy. Se llama cuando llegan la configuración y los planes.
@@ -50,16 +56,17 @@ export function itemsDelDia(fecha, f) {
   const src = f || estado, plan = planDe(fecha, src), items = [], vistos = {};
   if (plan) {
     (plan.meds || []).forEach((m) => { const id = tomaId(fecha, m.rid, m.hora); vistos[id] = 1; items.push({ tipo: 'med', hora: m.hora, id, r: { id: m.rid, nombre: m.nombre, dosis: m.dosis, paraQue: m.paraQue } }); });
-    (plan.comidas || []).forEach((c) => { const id = comidaId(fecha, c.k); vistos[id] = 1; items.push({ tipo: 'comida', hora: c.hora, id, k: c.k, nombre: INFO_COMIDA[c.k].nombre, icono: INFO_COMIDA[c.k].icono, texto: c.texto, porciones: c.porciones || '' }); });
+    (plan.comidas || []).forEach((c) => { const id = comidaId(fecha, c.k); vistos[id] = 1; items.push({ tipo: 'comida', hora: c.hora, id, k: c.k, nombre: INFO_COMIDA[c.k].nombre, icono: INFO_COMIDA[c.k].icono, opcional: !!c.opcional, texto: c.texto, porciones: c.porciones || '' }); });
+    (plan.rutina || []).forEach((t) => { if (TAREAS[t.id]) items.push({ tipo: 'tarea', hora: t.hora, tid: t.id }); });
     (plan.medir || []).forEach((h, i) => items.push({ tipo: 'medir', hora: h, i }));
   }
   Object.keys(src.tomas).forEach((id) => {
     const t = src.tomas[id];
     if (t.fecha !== fecha || vistos[id]) return;
-    if (t.clase === 'comida') { const info = INFO_COMIDA[t.comida]; if (info) items.push({ tipo: 'comida', hora: hhmm(new Date(t.ts)), id, k: t.comida, nombre: info.nombre, icono: info.icono, texto: t.previsto || '', porciones: '' }); }
+    if (t.clase === 'comida') { const info = INFO_COMIDA[t.comida]; if (info) items.push({ tipo: 'comida', hora: hhmm(new Date(t.ts)), id, k: t.comida, nombre: info.nombre, icono: info.icono, opcional: !!info.opcional, texto: t.previsto || '', porciones: '' }); }
     else items.push({ tipo: 'med', hora: t.hora || hhmm(new Date(t.ts)), id, fueraDePlan: true, r: { id: t.remedioId, nombre: t.nombre, dosis: t.dosis || '', paraQue: '' } });
   });
-  const peso = { med: 0, medir: 1, comida: 2 };
+  const peso = { tarea: 0, med: 1, medir: 2, comida: 3 };
   return items.sort((a, b) => (a.hora < b.hora ? -1 : a.hora > b.hora ? 1 : peso[a.tipo] - peso[b.tipo]));
 }
 
@@ -80,6 +87,13 @@ export function medicionesDeTurno(fecha, i, f) {
     horas.forEach((h, j) => { if (Math.abs(min(h) - t) < Math.abs(min(horas[mejor]) - t)) mejor = j; });
     return mejor === i;
   });
+}
+
+// Mediciones de un día que cumplen una tarea de la rutina, de la más antigua a la más nueva.
+// Si se repite la lectura quedan todas: no se promedian ni se pisan.
+export function medicionesDeTarea(fecha, tid, f) {
+  const src = f || estado;
+  return src.mediciones.filter((m) => m.fecha === fecha && tareaDe(m) === tid).sort((a, b) => a.ts - b.ts);
 }
 
 // "Sin subir": el registro está guardado en este celular pero todavía no llega a la nube.

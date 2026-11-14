@@ -2,8 +2,8 @@
 import { estado, acciones, pintar, aviso, guardarLocal, leerLocal, esAdmin, paraGuardar } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, claveFecha, deClave, sumarDias, hhmm, fechaLarga, DIAS, mayus } from '../util.js';
-import { TIPOS, ORDEN_TIPOS, ETIQUETA, clasificar, valorTexto } from '../datos.js';
-import { itemsDelDia, resumenRemedios, medicionesDeTurno, planDe, sinSubir } from '../plan.js';
+import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, valorTexto } from '../datos.js';
+import { itemsDelDia, resumenRemedios, medicionesDeTurno, medicionesDeTarea, planDe, sinSubir } from '../plan.js';
 
 const franja = (h) => (h < '12:00' ? 'Mañana' : h < '19:00' ? 'Tarde' : 'Noche');
 const ICONO_FRANJA = { 'Mañana': 'sun', 'Tarde': 'sunset', 'Noche': 'moon' };
@@ -44,10 +44,23 @@ function filaMedir(it, fecha, modo) {
     ${modo === 'hoy' ? `<a class="btn sec" href="#medir">${ico('plus')}Anotar</a>` : ''}</div>`);
 }
 
+// Una tarea de la rutina (por ejemplo, azúcar en ayunas). Se da por hecha solo cuando hay una medición anotada para ella.
+function filaTarea(it, fecha, modo) {
+  const T = TAREAS[it.tid], ms = medicionesDeTarea(fecha, it.tid), ult = ms[ms.length - 1];
+  if (ult) {
+    const c = clasificar(ult, estado.config.rangos);
+    return fila('medir hecho', 'tarea-' + it.tid, it.hora, `<a class="tarjeta-fila" href="#medir/${T.tipo}"><span class="ic hecho">${ico('check')}</span>
+      <div class="txt"><p class="tit">${T.nombre}</p><p class="firma"><span class="v ${c}">${valorTexto(ult)}</span> · ${ETIQUETA[c]} · ${hhmm(new Date(ult.ts))} · ${esc(ult.quien)}${ms.length > 1 ? ` · ${ms.length} lecturas` : ''}${pend(ult)}</p></div>${ico('right', 'flecha')}</a>`);
+  }
+  return fila('medir', 'tarea-' + it.tid, it.hora, `<div class="tarjeta-fila"><span class="ic medir">${ico(TIPOS[T.tipo].icono)}</span>
+    <div class="txt"><p class="tit">${T.nombre}</p><p class="${modo === 'pasado' ? 'firma falta' : 'sub'}">${modo === 'pasado' ? 'No quedó anotado' : modo === 'hoy' ? 'Falta anotar' : 'Previsto'}</p></div>
+    ${modo === 'hoy' ? `<a class="btn sec" href="#medir/${T.tipo}/t/${it.tid}">${ico('plus')}Anotar</a>` : ''}</div>`);
+}
+
 function filaComida(it) {
   const reg = estado.tomas[it.id];
   return fila('comida' + (reg ? ' hecho' : ''), it.id, it.hora, `<a class="tarjeta-fila plana" href="#comidas"><span class="ic ${reg ? 'hecho' : 'comida'}">${ico(reg ? 'check' : it.icono)}</span>
-    <div class="txt"><p class="tit">${it.nombre}</p>${reg ? `<p class="firma">${COMIO[reg.comio] || 'Anotado'} · ${esc(reg.quien)}${pend(reg)}</p>` : `<p class="sub">${esc(it.texto)}</p>`}</div>${ico('right', 'flecha')}</a>`);
+    <div class="txt"><p class="tit">${it.nombre}${it.opcional ? ' · opcional' : ''}</p>${reg ? `<p class="firma">${COMIO[reg.comio] || 'Anotado'} · ${esc(reg.quien)}${pend(reg)}</p>` : `<p class="sub">${esc(it.texto)}</p>`}</div>${ico('right', 'flecha')}</a>`);
 }
 
 function tiraSemana(hoy, dia) {
@@ -120,7 +133,7 @@ export function render() {
       linea += `<div class="fila ancla"><div class="hora"></div><div class="riel"></div><p class="rotulo">${ico(ICONO_FRANJA[f])}${f}</p></div>`;
     }
     if (!pusoAhora && it.hora > ahoraHM) { linea += marcaAhora; pusoAhora = true; }
-    linea += it.tipo === 'med' ? filaMed(it, modo, ahoraHM, dia, anotable) : it.tipo === 'medir' ? filaMedir(it, dia, modo) : filaComida(it);
+    linea += it.tipo === 'med' ? filaMed(it, modo, ahoraHM, dia, anotable) : it.tipo === 'tarea' ? filaTarea(it, dia, modo) : it.tipo === 'medir' ? filaMedir(it, dia, modo) : filaComida(it);
   });
   if (!pusoAhora) linea += marcaAhora;
   if (!items.length) linea = '<p class="vacio-txt">No hay nada anotado para este día.</p>';
@@ -136,7 +149,7 @@ export function render() {
       <div class="hoy-resumen">${tarjetaResumen(dia, modo, items, ahoraHM)}
         <a class="acompana" href="#agenda">${ico('user')}<span>${modo === 'hoy' ? 'Acompaña hoy' : 'Acompaña'}: <b>${acompana ? esc(acompana) : 'sin asignar'}</b></span>${ico('right', 'flecha')}</a></div>
       <div class="linea">${linea}${sinPlan}</div>
-      <div class="hoy-ultimas">${modo === 'hoy' ? ultimas() : ''}${instalar}</div>
+      <div class="hoy-ultimas"><a class="btn sec" href="#agenda/cuidados">${ico('info')}Actividades y cuidados</a>${modo === 'hoy' ? ultimas() : ''}${instalar}</div>
     </div>
   </div>`;
 }

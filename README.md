@@ -40,6 +40,8 @@ git add -A && git commit -m "Actualiza la app" && git push
 
 Importante: la app se debe agregar a inicio **desde el link con el código**. Así el ícono queda apuntando al cuaderno de la familia.
 
+**Un solo cuaderno.** Cada link es un cuaderno distinto. Si alguien abre la app sin el link y crea un cuaderno, queda en uno nuevo y vacío, y no ve lo que anota el resto. Para comprobarlo, en **Agenda → Ajustes** aparece la **seña del cuaderno** (4 letras): a toda la familia le tiene que salir la misma. Si a alguien le sale otra, hay que mandarle de nuevo el link desde **Invitar a la familia**.
+
 ## 4. Seguridad, en una línea
 
 Protege: nadie sin el link puede leer ni escribir, y los códigos no se pueden listar ni adivinar (28 caracteres al azar). No protege: quien tenga el link entra con acceso completo, así que el link es la llave y no se comparte fuera de la familia.
@@ -56,11 +58,11 @@ Todo vive bajo `/familias/{codigo}/`:
 
 | Colección | Documento | Contenido |
 |---|---|---|
-| `config` | `app` | remedios, rangos, horas de medir, menú semanal y porciones, datos de emergencia, contactos |
-| `config` | `plan-{fecha}` | copia del plan de ese día (remedios, comidas y horas de medir), para que cambiar la configuración no altere el historial |
+| `config` | `app` | remedios (con `fuente`: de dónde sale la indicación), rangos, `rutinaHoras` (horas de la rutina de medir), menú semanal y porciones, datos de emergencia, contactos, `editado` (quién cambió los ajustes y cuándo) |
+| `config` | `plan-{fecha}` | copia del plan de ese día (remedios, comidas y `rutina` de mediciones), para que cambiar la configuración no altere el historial. Los días guardados antes traen `medir` (dos horas sueltas) y se siguen mostrando |
 | `tomas` | `{fecha}_{remedio}_{hora}` | quién dio el remedio y a qué hora (el id fijo evita anotar dos veces la misma toma) |
 | `tomas` | `{fecha}_comida_{comida}` | qué comió (todo, una parte o nada), con `clase: 'comida'` |
-| `mediciones` | id automático | tipo, valor, momento (azúcar), cómo se siente, nota, quién, hora |
+| `mediciones` | id automático | tipo, valor, `momento` (azúcar: `ayunas`, `antes` o `despues`), `tarea` (qué tarea de la rutina cumple, o vacío), `inicioComida` y `minComida` (cuánto pasó desde que empezó a comer), `pulsoId`/`junto` (presión y pulso anotados juntos), cómo se siente, nota, quién, hora |
 | `compras` | id automático | producto, comprado |
 | `turnos` | `{fecha}` | quién acompaña ese día |
 | `citas` | id automático | qué es, día, hora, lugar, nota |
@@ -72,7 +74,8 @@ index.html        armazón y los íconos
 css/estilos.css   estilos (claro y oscuro)
 js/app.js         arranque, navegación y eventos
 js/db.js          Firebase: sesión anónima, Firestore, respaldo
-js/datos.js       valores iniciales, rangos y clasificación por colores
+js/datos.js       valores iniciales, rangos, rutina de mediciones y clasificación por colores
+js/guias.js       cómo usar las máquinas de la casa y guía de comidas (plato, ideas por comida)
 js/nucleo.js      estado compartido y aviso "Deshacer"
 js/util.js        fechas, actualización del DOM, copiar y compartir
 js/plan.js        plan de cada día y copia para el historial
@@ -80,6 +83,16 @@ js/vistas/        hoy, medir, comidas, agenda, emergencia, ajustes, resumen (pan
 sw.js             deja la app guardada para abrir sin señal
 firestore.rules   reglas de seguridad
 ```
+
+### Rutina de mediciones
+
+La rutina tiene cuatro tareas: azúcar en ayunas, presión de la mañana, azúcar 2 horas después de empezar el almuerzo y presión de la noche. Las horas se cambian en **Ajustes → Rangos y horas de medir**. Una tarea queda hecha solo cuando alguien anota una medición para ella; cada medición cumple a lo más una tarea. La presión se puede anotar junto con el pulso, y si se repite la lectura quedan las dos.
+
+Los rangos precargados son generales. Los del azúcar (80 a 130 antes de comer, bajo 180 una o dos horas después, y bajo 70 como azúcar baja) son los que publican los CDC para personas con diabetes. Si el médico indica otros, se cambian en Ajustes.
+
+### Estado de la sincronización
+
+La franja bajo el título y **Ajustes** muestran si lo anotado en el aparato ya subió: **Sincronizado con la nube**, **Pendiente de sincronizar** o **Sin señal**. Cuenta también los borrados y los cambios de turnos, fechas y ajustes. Si la nube rechaza un cambio o se corta la lectura en vivo, la app lo avisa y deja reintentar.
 
 Los recordatorios no los hace la app: se usa un calendario compartido de iCloud o las alarmas del Reloj (guía en **Ajustes → Alarmas de los remedios**).
 
@@ -89,3 +102,10 @@ Los recordatorios no los hace la app: se usa un calendario compartido de iCloud 
 - **Reporte en PDF**: elige un día o una semana y toca **Guardar como PDF**. Se arma en el navegador; no se envía a ningún servidor.
 - En cada registro, `ts` es la hora real de lo ocurrido y `creado` es cuándo se anotó.
 - Solo quien entra como **Fabián** ve las opciones de administración. Es para simplificar la pantalla a los demás, no una barrera de seguridad.
+
+## Entrega familiar del 14 de noviembre
+- Colaciones opcionales en Hoy y Comidas, con horarios, ideas y porciones editables; no cuentan como pendientes obligatorios.
+- Actividades y cuidados en Agenda y Hoy, con indicaciones personales y fuente cargadas por la familia.
+- Cache de la PWA: cuaderno-v6.
+- Verificacion final: sintaxis ES2021 y apertura de cinco pantallas a 375 px. Pruebas completas de estas adiciones e iPhone real pendientes.
+

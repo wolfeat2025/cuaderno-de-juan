@@ -1,13 +1,15 @@
-// MEDIR: anotar presión, pulso, azúcar y oxígeno; historial, gráfico y resumen para el médico.
+// MEDIR: la rutina del día, anotar presión, pulso, azúcar y oxígeno, historial, gráfico y resumen para el médico.
 import { estado, acciones, pintar, ir, aviso, paraGuardar } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, porId, claveFecha, deClave, sumarDias, hhmm, fechaCorta, fechaLarga, diaRelativo, copiar, compartir } from '../util.js';
-import { TIPOS, ORDEN_TIPOS, ETIQUETA, clasificar, mensaje, azucarBaja, valorTexto, detalleMomento } from '../datos.js';
-import { itemsDelDia, sinSubir } from '../plan.js';
+import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, mensaje, azucarBaja, valorTexto, detalleMomento, duracion } from '../datos.js';
+import { itemsDelDia, sinSubir, medicionesDeTarea } from '../plan.js';
+import { guiaMaquina } from '../guias.js';
 
 const AVISO_MEDICO = 'Rangos generales. Valen primero las indicaciones de su médico.';
 const deTipo = (t) => estado.mediciones.filter((m) => m.tipo === t);
-const cuando = (m) => `${diaRelativo(m.fecha, claveFecha(estado.ahora))} ${hhmm(new Date(m.ts))}`;
+const HORA_OK = /^\d\d:\d\d$/;
+const aMin = (h) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
 
 // Mini gráfico de los últimos 7 días para la tarjeta de cada medición.
 function chispa(t) {
@@ -20,8 +22,24 @@ function chispa(t) {
   return `<svg class="chispa" viewBox="0 0 120 26" aria-hidden="true"><polyline points="${pts}"/><circle cx="${x(vs.length - 1).toFixed(1)}" cy="${y(vs[vs.length - 1]).toFixed(1)}" r="3.2"/></svg>`;
 }
 
+// Las tareas de medición de hoy, con su estado. Tocar una abre el formulario con su contexto ya sugerido.
+function rutinaHoy() {
+  const hoy = claveFecha(estado.ahora), tareas = itemsDelDia(hoy).filter((i) => i.tipo === 'tarea');
+  if (!tareas.length) return '';
+  const filas = tareas.map((it) => {
+    const T = TAREAS[it.tid], ms = medicionesDeTarea(hoy, it.tid), ult = ms[ms.length - 1];
+    const c = ult ? clasificar(ult, estado.config.rangos) : '';
+    const sub = ult
+      ? `<span class="firma"><span class="v ${c}">${valorTexto(ult)}</span> · ${ETIQUETA[c]} · ${hhmm(new Date(ult.ts))}${ms.length > 1 ? ` · ${ms.length} lecturas` : ''}</span>`
+      : `<span class="sub">${it.hora} · Falta anotar</span>`;
+    return `<a class="opcion-aj" href="#medir/${T.tipo}/t/${it.tid}" data-k="rut-${it.tid}"><span class="ic ${ult ? 'hecho' : 'medir'}">${ico(ult ? 'check' : TIPOS[T.tipo].icono)}</span>
+      <span class="info"><span class="tit">${T.nombre}</span>${sub}</span>${ico('right')}</a>`;
+  }).join('');
+  return `<p class="rotulo">${ico('clock')}Rutina de hoy</p><div class="lista-aj rutina">${filas}</div>`;
+}
+
 function principal() {
-  const hoy = claveFecha(estado.ahora);
+  const hoy = claveFecha(estado.ahora), rutina = rutinaHoy();
   const tarjetas = ORDEN_TIPOS.map((t) => {
     const T = TIPOS[t], m = deTipo(t)[0];
     const c = m ? clasificar(m, estado.config.rangos) : '';
@@ -34,11 +52,11 @@ function principal() {
       <span class="anotar">${ico('plus')}Anotar</span></a>`;
   }).join('');
   return `<div class="envoltura medir">
-    <details class="plegable"><summary>${ico('info')}Cómo medir bien${ico('down', 'giro')}</summary>
-      <ol><li>Sentado y tranquilo 5 minutos antes.</li><li>Siempre el mismo brazo.</li><li>Sin hablar mientras se mide.</li><li>Mañana y tarde, a la misma hora.</li></ol></details>
+    ${rutina}
+    ${rutina ? `<p class="rotulo">${ico('plus')}Anotar otra medición</p>` : ''}
     <div class="grilla-medir">${tarjetas}</div>
     <a class="btn quieto" href="#resumen">${ico('chart')}Resumen y reportes</a>
-    <p class="nota">${estado.config.rangos.provisorio ? 'Los colores usan rangos provisorios. ' : ''}${AVISO_MEDICO}</p>
+    <p class="nota">Dentro de cada medición está "Cómo usar nuestra máquina". ${estado.config.rangos.provisorio ? 'Los colores usan rangos generales. ' : ''}Valen primero las indicaciones de su médico.</p>
   </div>`;
 }
 
@@ -82,15 +100,45 @@ function historial(t) {
   return h;
 }
 
-function formulario(t) {
-  const T = TIPOS[t], u = estado.ui;
-  const campos = T.campos.map((c, i) => `<div class="campo"><label for="m${i}">${c[0]}</label><input class="numero" id="m${i}" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="3" placeholder="—"></div>`).join(T.campos.length > 1 ? '<span class="barra">/</span>' : '');
-  const momento = t === 'azucar' ? `<div class="grupo"><p class="rotulo">¿Cuándo se midió?</p><div class="opciones">
-      ${[['ayunas', 'En ayunas'], ['despues', 'Después de comer']].map(([k, n]) => `<button class="opcion${u.momento === k ? ' sel' : ''}" data-a="elegirMomento" data-v="${k}">${n}</button>`).join('')}</div></div>` : '';
+// ---- Contexto de la medición ----
+// Azúcar: 'ayunas' y 'almuerzo' cumplen su tarea de la rutina; 'antes' y 'despues' son de cualquier otra comida.
+const CTX_AZUCAR = [['ayunas', 'En ayunas'], ['almuerzo', 'Después de almorzar'], ['antes', 'Antes de otra comida'], ['despues', 'Después de otra comida']];
+const CTX_PRESION = [['pre-manana', 'Mañana'], ['pre-noche', 'Noche'], ['otro', 'Otro momento']];
+// Lo elegido en pantalla; si no se ha tocado nada, lo que sugiere la tarea desde la que se entró.
+function contexto(t, tid) {
+  const u = estado.ui, T = TAREAS[tid];
+  if (t === 'azucar') return u.momento || (T && T.tipo === 'azucar' ? (T.momento === 'ayunas' ? 'ayunas' : 'almuerzo') : '');
+  if (t === 'presion') return u.cuando || (T && T.tipo === 'presion' ? tid : tid === 'otro' ? 'otro' : estado.ahora.getHours() < 15 ? 'pre-manana' : 'pre-noche');
+  return '';
+}
+
+function formulario(t, tid) {
+  const T = TIPOS[t], u = estado.ui, ctx = contexto(t, tid);
+  const maquina = t === 'presion' ? [' · Sistema', ' · Día'] : ['', ''];
+  const campos = T.campos.map((c, i) => `<div class="campo"><label for="m${i}">${c[0]}${maquina[i] || ''}</label><input class="numero" id="m${i}" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="3" placeholder="—"></div>`).join(T.campos.length > 1 ? '<span class="barra">/</span>' : '');
+  const pulso = t === 'presion' ? `<div class="campo campo-pulso"><label for="m2">Pulso · Bey/MIN (si lo quieres anotar)</label><input class="numero" id="m2" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="3" placeholder="—"></div>` : '';
+  const chips = (lista, accion) => lista.map(([k, n]) => `<button class="opcion${ctx === k ? ' sel' : ''}" data-a="${accion}" data-v="${k}">${n}</button>`).join('');
+  let momento = '';
+  if (t === 'azucar') {
+    const despues = ctx === 'almuerzo' || ctx === 'despues', comida = ctx === 'almuerzo' ? 'almorzar' : 'comer';
+    let van = '';
+    if (despues && HORA_OK.test(u.inicio || '')) {
+      const ref = u.otraHora && HORA_OK.test(val('mhora')) ? aMin(val('mhora')) : aMin(hhmm(new Date())), dif = ref - aMin(u.inicio);
+      van = dif >= 0 ? `Van ${duracion(dif)} desde que empezó a ${comida}.` : '';
+    }
+    momento = `<div class="grupo"><p class="rotulo">¿Cuándo se midió?</p><div class="opciones envuelve">${chips(CTX_AZUCAR, 'elegirMomento')}</div></div>
+      ${despues ? `<div class="grupo" data-k="inicio"><label class="rotulo" for="minicio">¿A qué hora empezó a ${comida}?</label>
+        <input class="texto" id="minicio" type="time" value="${esc(u.inicio || '')}" data-c="cambiarInicio">
+        <p class="nota">${van || 'Si no se sabe, se deja vacío.'} Lo habitual es medir cerca de 2 horas después de empezar.</p></div>` : ''}`;
+  } else if (t === 'presion') {
+    momento = `<div class="grupo"><p class="rotulo">¿De cuándo es esta medición?</p><div class="opciones">${chips(CTX_PRESION, 'elegirCuando')}</div></div>`;
+  }
   const animos = [['Bien', ''], ['Regular', ' medio'], ['Mal', ' malo']].map(([n, cls]) => `<button class="opcion${cls}${u.animo === n ? ' sel' : ''}" data-a="elegirAnimo" data-v="${n}">${n}</button>`).join('');
   return `<div class="envoltura" data-k="form-${t}">
     <a class="btn quieto izq" href="#medir">${ico('left')}Volver a Medir</a>
+    ${guiaMaquina(t)}
     <div class="numeros">${campos}</div>
+    ${pulso}
     ${momento}
     <div class="grupo"><p class="rotulo">¿Cómo se siente? (opcional)</p><div class="opciones">${animos}</div></div>
     <div class="grupo"><p class="rotulo">¿A qué hora se midió?</p><div class="opciones">
@@ -98,27 +146,29 @@ function formulario(t) {
       ${u.otraHora ? `<input class="texto" id="mhora" type="time" value="${u.horaIni || ''}" aria-label="Hora en que se midió">` : ''}</div>
     <input class="texto" id="mnota" placeholder="Nota corta (opcional)" maxlength="120" autocomplete="off">
     ${u.errorMedir ? `<p class="error" role="alert">${ico('alert')}${esc(u.errorMedir)}</p>` : ''}
-    <button class="btn pri" data-a="guardarMedicion" data-tipo="${t}">${ico('check')}Guardar</button>
+    <button class="btn pri" data-a="guardarMedicion" data-tipo="${t}" data-tid="${esc(tid || '')}">${ico('check')}Guardar</button>
     <div class="panel"><p class="rotulo">Últimos 7 días</p>${grafico(t)}</div>
     <div class="lista-hist">${historial(t)}</div>
     <p class="nota">${AVISO_MEDICO}</p>
   </div>`;
 }
 
-// Rutina acompañada: después de guardar, ofrece seguir con lo que falta medir en esta ronda (última media hora).
-function siguientes(t, discreto) {
-  const hace = Date.now() - 30 * 60000;
-  const faltan = ORDEN_TIPOS.filter((x) => x !== t && !estado.mediciones.some((m) => m.tipo === x && m.ts >= hace));
+// Después de guardar: lo que todavía falta de la rutina de hoy (no se pide medir todo cada vez).
+function loQueFalta(discreto) {
+  const hoy = claveFecha(estado.ahora), tareas = itemsDelDia(hoy).filter((i) => i.tipo === 'tarea');
+  const faltan = tareas.filter((i) => !medicionesDeTarea(hoy, i.tid).length);
   const volver = `<a class="btn ${faltan.length || discreto ? 'quieto' : 'pri'}" href="#hoy">${ico('home')}Volver a Hoy</a>`;
-  if (!faltan.length) return `<p class="rotulo">${ico('ccheck')}Ya están las 4 mediciones</p>${volver}`;
-  return `<p class="rotulo">Seguir con</p><div class="seguir">${faltan.map((x, k) => `<a class="btn ${k === 0 && !discreto ? 'pri' : 'sec'}" href="#medir/${x}">${ico(TIPOS[x].icono)}${TIPOS[x].nombre}</a>`).join('')}</div>${volver}`;
+  if (!tareas.length) return volver;
+  if (!faltan.length) return `<p class="rotulo">${ico('ccheck')}La rutina de hoy está completa</p>${volver}`;
+  return `<p class="rotulo">Falta hoy</p><div class="seguir">${faltan.map((i) => `<a class="btn sec izq" href="#medir/${TAREAS[i.tid].tipo}/t/${i.tid}">${ico(TIPOS[TAREAS[i.tid].tipo].icono)}<span>${TAREAS[i.tid].nombre}<br><span class="sub-btn">Hora de la rutina: ${i.hora}</span></span></a>`).join('')}</div>${volver}`;
 }
 
 function resultado(t, id) {
   const m = estado.mediciones.find((x) => x.id === id);
   if (!m) return `<div class="envoltura"><p class="vacio-txt">Esta medición se borró.</p><a class="btn pri" href="#medir">${ico('left')}Volver a Medir</a></div>`;
-  const c = clasificar(m, estado.config.rangos), msj = mensaje(m, estado.config.rangos);
-  const mal = m.animo === 'Mal';
+  const R = estado.config.rangos, c = clasificar(m, R), msj = mensaje(m, R);
+  const pulso = m.pulsoId ? estado.mediciones.find((x) => x.id === m.pulsoId) : null, cp = pulso ? clasificar(pulso, R) : '';
+  const mal = m.animo === 'Mal', serio = mal || c === 'rojo' || cp === 'rojo';
   return `<div class="envoltura" data-k="res-${id}">
     <div class="resultado ${c}">
       <span class="chip ${c === 'verde' ? 'ok' : c === 'amarillo' ? 'amb' : 'rojo'}">${ico(c === 'verde' ? 'ccheck' : 'alert')}${msj[0]}</span>
@@ -126,8 +176,10 @@ function resultado(t, id) {
       <p class="que">${msj[1]}</p>
       <p class="sub">${TIPOS[t].nombre}${detalleMomento(m) ? ' ' + detalleMomento(m) : ''} · Guardado por ${esc(m.quien)} a las ${hhmm(new Date(m.ts))}</p>
     </div>
-    ${mal ? `<div class="alerta131"><p>Si tiene dolor en el pecho, falta de aire o se desmaya, llamen al 131.</p><a class="btn rojo" href="tel:131">${ico('phone')}Llamar al 131</a></div>` : ''}
-    ${siguientes(t, mal || c === 'rojo')}
+    ${pulso ? `<div class="panel junto t-pulso"><span class="ic tipo">${ico('heart')}</span><div class="txt"><p class="tit">Pulso ${pulso.valor} por minuto</p><p class="estado ${cp}"><span class="luz"></span>${mensaje(pulso, R)[0]}</p></div></div>` : ''}
+    ${serio ? `<div class="alerta131"><p>Si tiene dolor en el pecho, falta de aire o se desmaya, llamen al 131.</p><a class="btn rojo" href="tel:131">${ico('phone')}Llamar al 131</a></div>` : ''}
+    ${t === 'presion' ? `<a class="btn quieto" href="#medir/presion/t/${m.tarea || 'otro'}">${ico('plus')}Anotar otra lectura</a>` : ''}
+    ${loQueFalta(serio)}
     <p class="nota">${AVISO_MEDICO}</p>
   </div>`;
 }
@@ -145,7 +197,8 @@ export function textoResumen() {
     let dia = '', fila = '';
     ms.forEach((m) => {
       if (m.fecha !== dia) { if (fila) L.push(fila); dia = m.fecha; fila = `  ${fechaCorta(deClave(dia))}: `; } else fila += ' · ';
-      fila += `${hhmm(new Date(m.ts))} ${valorTexto(m)}${m.tipo === 'azucar' ? (m.momento === 'despues' ? ' (después de comer)' : ' (ayunas)') : ''}`;
+      const det = m.tipo === 'azucar' ? (m.momento === 'ayunas' ? 'ayunas' : detalleMomento(m)) : '';
+      fila += `${hhmm(new Date(m.ts))} ${valorTexto(m)}${det ? ` (${det})` : ''}`;
     });
     L.push(fila, '');
   });
@@ -177,50 +230,80 @@ function resumen() {
 
 export function render(args) {
   if (args[0] === 'resumen') return resumen();
-  if (TIPOS[args[0]]) return args[1] === 'listo' ? resultado(args[0], args[2]) : formulario(args[0]);
+  if (TIPOS[args[0]]) return args[1] === 'listo' ? resultado(args[0], args[2]) : formulario(args[0], args[1] === 't' ? args[2] : '');
   return principal();
 }
 export const titulo = (args) => (args[0] === 'resumen' ? 'Resumen' : TIPOS[args[0]] ? TIPOS[args[0]].nombre : 'Medir');
 
 acciones.elegirAnimo = (d) => { estado.ui.animo = estado.ui.animo === d.v ? '' : d.v; pintar(); };
 acciones.elegirMomento = (d) => { estado.ui.momento = d.v; pintar(); };
+acciones.elegirCuando = (d) => { estado.ui.cuando = d.v; pintar(); };
+acciones.cambiarInicio = (d, el) => { estado.ui.inicio = el.value; pintar(); };
 acciones.horaMedicion = (d) => { estado.ui.otraHora = d.v === 'otra'; estado.ui.horaIni = hhmm(new Date()); pintar(); };
 acciones.abrirMed = (d) => { estado.ui.medAbierta = estado.ui.medAbierta === d.id ? null : d.id; pintar(); };
 acciones.borrarMed = (d) => {
   const m = estado.mediciones.find((x) => x.id === d.id); if (!m) return;
-  const copia = paraGuardar(m);
-  db.borrar('mediciones', d.id); estado.ui.medAbierta = null;
-  aviso('Medición borrada', () => db.poner('mediciones', d.id, copia));
+  // Si la presión se anotó junto con el pulso, se borran y se reponen juntos.
+  const par = m.pulsoId ? estado.mediciones.find((x) => x.id === m.pulsoId) : null;
+  const copia = paraGuardar(m), copiaPar = par ? paraGuardar(par) : null;
+  db.borrar('mediciones', d.id); if (par) db.borrar('mediciones', par.id);
+  estado.ui.medAbierta = null;
+  aviso('Medición borrada', () => { db.poner('mediciones', d.id, copia); if (par) db.poner('mediciones', par.id, copiaPar); });
 };
 acciones.guardarMedicion = (d) => {
   const t = d.tipo, T = TIPOS[t], u = estado.ui, vals = [];
+  const falla = (texto, campo) => { u.errorMedir = texto; pintar(); if (campo && porId(campo)) porId(campo).focus(); };
   for (let i = 0; i < T.campos.length; i++) {
     const crudo = val('m' + i), n = Number(crudo), c = T.campos[i];
-    if (!/^\d{1,3}$/.test(crudo)) { u.errorMedir = `Falta el número de "${c[0]}".`; pintar(); porId('m' + i).focus(); return; }
-    if (n < c[1] || n > c[2]) { u.errorMedir = `Revisa el número de "${c[0]}": ${n} no parece correcto.`; pintar(); porId('m' + i).focus(); return; }
+    if (!/^\d{1,3}$/.test(crudo)) return falla(`Falta el número de "${c[0]}".`, 'm' + i);
+    if (n < c[1] || n > c[2]) return falla(`Revisa el número de "${c[0]}": ${n} no parece correcto.`, 'm' + i);
     vals.push(n);
   }
-  if (t === 'presion' && vals[1] >= vals[0]) { u.errorMedir = 'Revisa los números: el de arriba debe ser mayor que el de abajo.'; pintar(); return; }
-  if (t === 'azucar' && !u.momento) { u.errorMedir = 'Elige si fue en ayunas o después de comer.'; pintar(); return; }
+  if (t === 'presion' && vals[1] >= vals[0]) return falla('Revisa los números: el de arriba debe ser mayor que el de abajo.');
+  let pulso = null;
+  if (t === 'presion' && val('m2') !== '') {
+    const crudo = val('m2'), n = Number(crudo), c = TIPOS.pulso.campos[0];
+    if (!/^\d{1,3}$/.test(crudo) || n < c[1] || n > c[2]) return falla(`Revisa el número del pulso: ${crudo} no parece correcto.`, 'm2');
+    pulso = n;
+  }
+  const ctx = contexto(t, d.tid);
+  if (t === 'azucar' && !ctx) return falla('Elige si fue en ayunas, antes o después de comer.');
   const ahora = new Date(), id = db.nuevoId('mediciones');
   let ts = ahora.getTime();
   if (u.otraHora) {
     const h = val('mhora');
-    if (!/^\d\d:\d\d$/.test(h)) { u.errorMedir = 'Pon la hora en que se midió.'; pintar(); return; }
+    if (!HORA_OK.test(h)) return falla('Pon la hora en que se midió.');
     const real = new Date(); real.setHours(Number(h.slice(0, 2)), Number(h.slice(3, 5)), 0, 0);
-    if (real.getTime() > ts) { u.errorMedir = 'Esa hora todavía no llega. Revisa la hora.'; pintar(); return; }
+    if (real.getTime() > ts) return falla('Esa hora todavía no llega. Revisa la hora.');
     ts = real.getTime();
   }
   // `ts` es la hora real de la medición; `creado` es cuándo se anotó.
   const m = { tipo: t, valor: vals[0], fecha: claveFecha(ahora), ts, creado: ahora.getTime(), quien: estado.quien };
   if (u.otraHora) m.despues = true;
-  if (t === 'presion') m.valor2 = vals[1];
-  if (t === 'azucar') m.momento = u.momento;
+  if (t === 'presion') { m.valor2 = vals[1]; m.tarea = ctx === 'otro' ? '' : ctx; }
+  if (t === 'azucar') {
+    m.momento = ctx === 'almuerzo' ? 'despues' : ctx;
+    m.tarea = ctx === 'ayunas' ? 'glu-ayunas' : ctx === 'almuerzo' ? 'glu-almuerzo' : '';
+    const inicio = val('minicio');
+    if (m.momento === 'despues' && HORA_OK.test(inicio)) {
+      const ini = new Date(ts); ini.setHours(Number(inicio.slice(0, 2)), Number(inicio.slice(3, 5)), 0, 0);
+      if (ini.getTime() > ts) return falla('La hora en que empezó a comer no puede ser después de la medición.', 'minicio');
+      m.inicioComida = inicio; m.minComida = Math.round((ts - ini.getTime()) / 60000);
+    }
+  }
   if (u.animo) m.animo = u.animo;
   const nota = val('mnota'); if (nota) m.nota = nota;
+  // El pulso anotado junto a la presión se guarda como su propia medición, enlazada a esta.
+  let idPulso = '';
+  if (pulso !== null) {
+    idPulso = db.nuevoId('mediciones'); m.pulsoId = idPulso;
+    const p = { tipo: 'pulso', valor: pulso, fecha: m.fecha, ts, creado: m.creado, quien: estado.quien, junto: id };
+    if (u.otraHora) p.despues = true;
+    db.poner('mediciones', idPulso, p);
+  }
   db.poner('mediciones', id, m);
-  u.errorMedir = ''; u.animo = ''; u.momento = ''; u.otraHora = false;
-  aviso(`${T.nombre} guardada`, () => { db.borrar('mediciones', id); ir('medir/' + t); });
+  u.errorMedir = ''; u.animo = ''; u.momento = ''; u.cuando = ''; u.inicio = ''; u.otraHora = false;
+  aviso(`${T.nombre} guardada`, () => { db.borrar('mediciones', id); if (idPulso) db.borrar('mediciones', idPulso); ir('medir/' + t); });
   ir(`medir/${t}/listo/${id}`);
 };
 acciones.compartirResumen = async () => {

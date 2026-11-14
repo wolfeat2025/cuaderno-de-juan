@@ -11,12 +11,57 @@ export const TIPOS = {
 };
 export const ORDEN_TIPOS = ['presion', 'pulso', 'azucar', 'oxigeno'];
 
+// Rutina de mediciones de la familia. Las horas se cambian en Ajustes; aquí solo va qué se mide y en qué contexto.
+// Cada medición cumple a lo más una tarea (ver tareaDe), así una misma lectura nunca completa dos.
+export const TAREAS = {
+  'glu-ayunas': { tipo: 'azucar', momento: 'ayunas', nombre: 'Azúcar en ayunas' },
+  'pre-manana': { tipo: 'presion', nombre: 'Presión de la mañana' },
+  'glu-almuerzo': { tipo: 'azucar', momento: 'despues', nombre: 'Azúcar después de almorzar' },
+  'pre-noche': { tipo: 'presion', nombre: 'Presión de la noche' },
+};
+const HORA_OK = /^\d\d:\d\d$/;
+const dos = (n) => String(n).padStart(2, '0');
+// Lista de tareas con hora para un día. El azúcar de la tarde va 2 horas después de la hora del almuerzo.
+export function rutinaDe(c) {
+  const h = c.rutinaHoras || {}, alm = (c.horasComida || {}).almuerzo || '';
+  let tarde = '';
+  if (HORA_OK.test(alm)) { const m = Math.min(23 * 60 + 59, Number(alm.slice(0, 2)) * 60 + Number(alm.slice(3, 5)) + 120); tarde = dos(Math.floor(m / 60)) + ':' + dos(m % 60); }
+  return [['glu-ayunas', h.ayunas], ['pre-manana', h.manana], ['glu-almuerzo', tarde], ['pre-noche', h.noche]]
+    .filter((x) => HORA_OK.test(x[1] || '')).map((x) => ({ id: x[0], hora: x[1] }));
+}
+// A qué tarea corresponde una medición. Las nuevas lo traen anotado; las antiguas se deducen del contexto.
+export function tareaDe(m) {
+  if (typeof m.tarea === 'string') return m.tarea;
+  if (m.tipo === 'azucar') return m.momento === 'despues' ? 'glu-almuerzo' : m.momento === 'antes' ? '' : 'glu-ayunas';
+  if (m.tipo === 'presion') return new Date(m.ts).getHours() < 15 ? 'pre-manana' : 'pre-noche';
+  return '';
+}
+export const duracion = (min) => (min >= 60 ? `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ''}` : `${min} min`);
+
 export const COMIDAS = [
   ['desayuno', 'Desayuno', 'cup'],
   ['almuerzo', 'Almuerzo', 'soup'],
   ['once', 'Once', 'apple'],
   ['cena', 'Cena', 'fish'],
 ];
+
+// Opcionales: los horarios sugeridos organizan el día, no son una pauta nutricional.
+export const COLACIONES = [['colacion-manana', 'Colación de la mañana'], ['colacion-tarde', 'Colación de la tarde']];
+export function colacionesDe(c) {
+  const ajustes = c.colaciones || {}, h = c.horasComida || {};
+  if (ajustes.mostrar === false) return [];
+  const mitad = (a, b) => {
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(a || '') || !/^([01]\d|2[0-3]):[0-5]\d$/.test(b || '')) return '';
+    const min = (x) => Number(x.slice(0, 2)) * 60 + Number(x.slice(3));
+    if (min(b) <= min(a)) return '';
+    const n = Math.floor((min(a) + min(b)) / 2);
+    return dos(Math.floor(n / 60)) + ':' + dos(n % 60);
+  };
+  return COLACIONES.map(([k, nombre], i) => ({ k, nombre, opcional: true,
+    hora: ajustes[k + 'Hora'] || mitad(i ? h.almuerzo : h.desayuno, i ? h.once : h.almuerzo),
+    texto: ajustes[k + 'Texto'] || 'Idea opcional: fruta entera o yogur natural sin azúcar añadida. Seguir la pauta de la nutricionista.',
+    porciones: ajustes[k + 'Porcion'] || '' })).filter((x) => x.hora);
+}
 
 export const ETIQUETA = { verde: 'Normal', amarillo: 'Revisar', rojo: 'Fuera de lo normal' };
 
@@ -48,7 +93,8 @@ export function configInicial() {
       azucar: { ayMin: 80, ayMax: 130, despMax: 180, rojoBajo: 70, rojoAlto: null },
       oxigeno: { min: 95, rojoBajo: 92 },
     },
-    medirHoras: ['08:30', '19:30'],
+    medirHoras: ['08:30', '19:30'],   // formato anterior: se conserva para leer los días ya guardados
+    rutinaHoras: { ayunas: '07:00', manana: '11:00', noche: '20:00' },
     horasComida: { desayuno: '09:00', almuerzo: '13:30', once: '17:30', cena: '20:30' },
     menu: MENU_EJEMPLO,
     menuEsEjemplo: true,
@@ -71,6 +117,7 @@ export function completarConfig(c) {
   out.rangos = Object.assign({}, b.rangos, (c && c.rangos) || {});
   ['presion', 'pulso', 'azucar', 'oxigeno'].forEach((k) => { out.rangos[k] = Object.assign({}, b.rangos[k], out.rangos[k] || {}); });
   out.horasComida = Object.assign({}, b.horasComida, (c && c.horasComida) || {});
+  out.rutinaHoras = Object.assign({}, b.rutinaHoras, (c && c.rutinaHoras) || {});
   out.emergencia = Object.assign({}, b.emergencia, (c && c.emergencia) || {});
   if (!Array.isArray(out.remedios)) out.remedios = [];
   if (!Array.isArray(out.contactos)) out.contactos = b.contactos;
@@ -81,6 +128,7 @@ export function completarConfig(c) {
 const num = (x) => (x === null || x === undefined || x === '' || isNaN(Number(x)) ? null : Number(x));
 
 // Devuelve 'verde' | 'amarillo' | 'rojo' según los rangos configurados.
+// En azúcar, "en ayunas" y "antes de comer" usan el rango de ayunas; "después de comer" usa su propio límite.
 export function clasificar(m, rangos) {
   const r = (rangos && rangos[m.tipo]) || {};
   const v = Number(m.valor), v2 = Number(m.valor2);
@@ -120,4 +168,13 @@ export function valorTexto(m) {
   return String(m.valor);
 }
 
-export const detalleMomento = (m) => (m.tipo === 'azucar' ? (m.momento === 'despues' ? 'después de comer' : 'en ayunas') : '');
+// Contexto de la medición en palabras (va en el historial, el resumen y los reportes).
+export function detalleMomento(m) {
+  if (m.tipo === 'presion') return m.tarea === 'pre-manana' ? 'mañana' : m.tarea === 'pre-noche' ? 'noche' : '';
+  if (m.tipo !== 'azucar') return '';
+  if (m.momento === 'antes') return 'antes de comer';
+  if (m.momento !== 'despues') return 'en ayunas';
+  const almuerzo = m.tarea === 'glu-almuerzo';
+  if (typeof m.minComida === 'number') return `${duracion(m.minComida)} después de empezar a ${almuerzo ? 'almorzar' : 'comer'}`;
+  return almuerzo ? 'después de almorzar' : 'después de comer';
+}

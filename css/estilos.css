@@ -496,6 +496,73 @@ textarea.texto { resize: none; line-height: 1.35; }
   .hoja { padding: 34px 38px; }
 }
 
+/* ---------- Piezas de la versión 4: cuaderno único, rutina de medir, guías de las máquinas y plato ---------- */
+.sena { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.12em; font-weight: 800; color: var(--ink); }
+.chip.sena { font-size: 19px; padding: 6px 12px; }
+.estado-sinc { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--acc-soft); color: var(--acc-ink); }
+.estado-sinc .ico { margin-top: 3px; }
+.estado-sinc .tit { font-size: 19px; color: inherit; }
+.estado-sinc .sub { color: var(--ink); }
+.estado-sinc.amb { background: var(--amb-soft); color: var(--amb-ink); }
+.sin-senal.con-boton { flex-wrap: wrap; }
+.sin-senal.con-boton p { display: flex; align-items: flex-start; gap: 8px; flex: 1 1 200px; }
+.sin-senal.con-boton .btn { background: var(--sup); color: var(--ink); }
+.nota.aviso-info { display: flex; align-items: flex-start; gap: 8px; background: var(--bg2); color: var(--ink); padding: 10px 12px; border-radius: 14px; }
+
+.opciones.envuelve { flex-wrap: wrap; }
+.opciones.envuelve .opcion { flex: 1 1 40%; }
+.opciones a.opcion { display: flex; align-items: center; justify-content: center; gap: 8px; text-align: center; }
+.opciones a.opcion .ico { width: 24px; height: 24px; }
+.campo-pulso .numero { height: 68px; font-size: 36px; }
+.panel.junto { flex-direction: row; align-items: center; gap: 12px; }
+.panel.junto .txt { display: flex; flex-direction: column; gap: 2px; }
+.seguir .btn.izq { flex: 1 1 100%; }
+
+.guia-cuerpo { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+.plegable .guia-cuerpo ol { padding: 0 0 0 26px; }
+.dibujo { display: block; width: 100%; max-width: 360px; height: auto; margin: 0 auto; }
+.dibujo .cuerpo, .dibujo .dedo { fill: var(--bg2); stroke: var(--ink2); stroke-width: 2; }
+.dibujo .pantalla { fill: var(--sup); stroke: var(--ink2); stroke-width: 2; }
+.dibujo .boton, .dibujo .tira { fill: var(--sup); stroke: var(--ink2); stroke-width: 1.5; }
+.dibujo .boton.fuerte { fill: var(--acc); stroke: var(--acc); }
+.dibujo .tira.punta { fill: var(--azu-soft); }
+.dibujo .gota { fill: var(--red); }
+.dibujo .tenue line { stroke: var(--ink2); stroke-width: 3; stroke-linecap: round; }
+.dibujo text { font-family: inherit; fill: var(--ink); }
+.dibujo .num { font-size: 26px; font-weight: 800; fill: var(--ink2); }
+.dibujo .rot { font-size: 16px; font-weight: 800; }
+.dibujo .chico { font-size: 13px; font-weight: 700; fill: var(--ink2); }
+.dibujo .chico.fuerte { fill: var(--on-acc); }
+.equivale { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.equivale li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg2); border-radius: 14px; font-size: 18px; }
+.equivale b { min-width: 86px; font-weight: 800; }
+
+.panel.cuidado { background: var(--acc-soft); box-shadow: none; gap: 6px; }
+.cuidado .h3 { color: var(--acc-ink); }
+.cuidado .sub { color: var(--ink); font-size: 18px; }
+.ideas { display: flex; flex-direction: column; gap: 10px; }
+.idea { gap: 6px; }
+.plato-panel { gap: 14px; }
+.plato-g { display: block; width: 100%; max-width: 320px; height: auto; margin: 0 auto; }
+.plato-g .loza { fill: var(--bg); stroke: var(--rule); stroke-width: 3; }
+.plato-g .a { fill: var(--acc); } .plato-g .b { fill: var(--ink2); } .plato-g .c { fill: var(--amb); }
+.plato-g text { font-family: inherit; font-size: 21px; font-weight: 800; }
+.plato-g .menor { font-size: 16px; font-weight: 700; }
+.plato-g .p1 text { fill: var(--on-acc); }
+.plato-g .p2 text, .plato-g .p3 text { fill: var(--sup); }
+.partes-plato { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 19px; }
+.partes-plato li { display: flex; align-items: flex-start; gap: 10px; }
+.partes-plato b, .partes-plato .sub { display: block; }
+/* El plato se arma por etapas: verduras, proteínas y carbohidratos. Al terminar queda completo. */
+@keyframes aparecer { from { opacity: 0; transform: scale(0.82); } to { opacity: 1; transform: scale(1); } }
+@keyframes aclarar { from { opacity: 0.25; } to { opacity: 1; } }
+.plato-g .parte { transform-origin: 150px 150px; animation: aparecer 0.7s ease-out both; }
+.partes-plato .parte { animation: aclarar 0.7s ease-out both; }
+.plato-g .p1, .partes-plato .p1 { animation-delay: 0.3s; }
+.plato-g .p2, .partes-plato .p2 { animation-delay: 1.6s; }
+.plato-g .p3, .partes-plato .p3 { animation-delay: 2.9s; }
+@media (prefers-reduced-motion: reduce) { .plato-g .parte, .partes-plato .parte { animation: none; } }
+
 /* ---------- Impresión / Guardar como PDF: solo el reporte, en fondo claro ---------- */
 @page { size: A4; margin: 14mm 12mm; }
 @media print {

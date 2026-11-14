@@ -1,9 +1,10 @@
 // COMIDAS: qué preparar, cuánto servir y qué comió. Compras y guía se abren aparte.
 import { estado, acciones, pintar, aviso, esAdmin, paraGuardar } from '../nucleo.js';
 import * as db from '../db.js';
-import { esc, ico, porId, claveFecha, hhmm, DIAS, mayus } from '../util.js';
-import { GUIA } from '../datos.js';
+import { esc, ico, val, porId, claveFecha, hhmm, DIAS, DIAS_K, mayus } from '../util.js';
+import { GUIA, COLACIONES, colacionesDe } from '../datos.js';
 import { itemsDelDia, sinSubir } from '../plan.js';
+import { SECCIONES_GUIA, GUIA_COMIDAS, PARTES_PLATO, platoGrande } from '../guias.js';
 
 const COMIO = { todo: 'Comió todo', parte: 'Comió una parte', nada: 'No comió' };
 const volver = `<a class="btn quieto izq" href="#comidas">${ico('left')}Volver a Comidas</a>`;
@@ -19,7 +20,7 @@ function tarjetaComida(it, ahoraHM) {
     registro = `<div class="registro hecho"><span class="ic hecho">${ico('check')}</span><div class="txt"><p class="firma">${COMIO[reg.comio] || 'Anotado'}${reg.otra ? ' (otra comida)' : ''}</p>
       <p class="sub">${esc(reg.quien)} · ${hhmm(new Date(reg.ts))}${reg.nota ? ' · ' + esc(reg.nota) : ''}${sinSubir(reg) ? ' · sin subir' : ''}</p></div>
       <button class="btn quieto auto" data-a="quitarComida" data-id="${it.id}">${ico('undo')}Cambiar</button></div>`;
-  } else if (it.hora > ahoraHM) {
+  } else if (!it.opcional && it.hora > ahoraHM) {
     registro = `<p class="sub">Se anota desde las ${it.hora}.</p>`;
   } else {
     const otra = u.otraComida === it.k;
@@ -29,7 +30,8 @@ function tarjetaComida(it, ahoraHM) {
              : `<button class="btn quieto" data-a="otraComida" data-k="${it.k}">${ico('edit')}Comió otra cosa</button>`}`;
   }
   return `<div class="panel comida-card" data-k="${it.id}">
-    <div class="titulo-fila"><div class="cabeza"><span class="ic comida">${ico(it.icono)}</span><p class="h3">${it.nombre}</p></div><span class="chip neutro">${it.hora}</span></div>
+    <div class="titulo-fila"><div class="cabeza"><span class="ic comida">${ico(it.icono)}</span><p class="h3">${it.nombre}</p>${it.opcional ? '<span class="chip neutro">Opcional</span>' : ''}</div><span class="chip neutro">${it.hora}</span></div>
+    ${it.opcional ? '<p class="nota">Hora orientativa. Si no corresponde, no hace falta registrarla.</p>' : ''}
     <div class="bloque"><p class="rotulo">Qué preparar</p><p class="sub grande">${esc(it.texto)}</p></div>
     <div class="bloque"><p class="rotulo">Cuánto servir</p>${servir}</div>
     <div class="bloque">${registro}</div></div>`;
@@ -41,32 +43,46 @@ function principal() {
   const faltan = estado.compras.filter((i) => !i.comprado).length;
   const op = (ruta, icono, t, s) => `<a class="opcion-aj" href="#${ruta}"><span class="ic comida">${ico(icono)}</span><span class="info"><span class="tit">${t}</span><span class="sub">${s}</span></span>${ico('right')}</a>`;
   return `<div class="envoltura">
+    <div class="panel cuidado"><p class="h3">La alimentación también es parte del cuidado</p>
+      <p class="sub">Una alimentación equilibrada apoya la recuperación y ayuda a manejar la glucosa en la sangre. Sigamos las indicaciones del equipo de salud.</p></div>
     <div class="titulo-fila"><p class="h2">Comidas de hoy</p><span class="chip neutro">${mayus(DIAS[estado.ahora.getDay()])}</span></div>
     ${c.menuEsEjemplo ? `<p class="nota aviso-ej">${ico('info')}Menú de ejemplo: ajustar con la nutricionista.</p>` : ''}
     ${comidas.length ? comidas.map((it) => tarjetaComida(it, ahoraHM)).join('') : '<p class="vacio-txt">No hay menú anotado para hoy.</p>'}
     <div class="lista-aj">
+      ${esAdmin() ? op('comidas/colaciones', 'clock', 'Organizar colaciones', 'Opcionales, horarios e indicaciones') : ''}
       ${op('comidas/compras', 'cart', 'Lista de compras', faltan ? `${faltan} por comprar` : 'Nada pendiente')}
-      ${op('comidas/guia', 'info', 'Guía rápida y plato', 'Sí, con medida y evitar')}
+      ${op('comidas/guia', 'info', 'Guía de comidas y plato', 'Desayuno, almuerzo, once y colaciones')}
       ${esAdmin() ? op('ajustes/menu', 'edit', 'Editar el menú y las porciones', 'Menú de la semana') : ''}
     </div>
     <p class="nota">Anotar lo que comió describe lo que pasó. No es una calificación.</p>
   </div>`;
 }
 
-function guia() {
+// Guía por comida. Arriba van los cuatro accesos; el almuerzo trae el plato grande por etapas.
+function guia(cual) {
+  const sec = GUIA_COMIDAS[cual] ? cual : 'almuerzo', G = GUIA_COMIDAS[sec], u = estado.ui;
   const col = (titulo, cls, icono, lista) => `<div class="col"><h3 class="${cls}">${icono ? ico(icono) : ''}${titulo}</h3><ul>${lista.map((x) => `<li>${x}</li>`).join('')}</ul></div>`;
+  const accesos = SECCIONES_GUIA.map(([k, n, icono]) => `<a class="opcion${k === sec ? ' sel' : ''}" href="#comidas/guia/${k}"${k === sec ? ' aria-current="page"' : ''}>${ico(icono)}${n}</a>`).join('');
+  // La pauta personal va aparte de las ideas generales, y solo si la nutricionista ya indicó porciones para hoy.
+  const pauta = sec === 'colaciones' ? [] : lineas(((estado.config.porciones || {})[DIAS_K[estado.ahora.getDay()]] || {})[sec]);
+  const plato = sec !== 'almuerzo' ? '' : `<div class="panel plato-panel" data-k="plato-${u.platoVez || 0}">
+      ${platoGrande()}
+      <ul class="partes-plato">${PARTES_PLATO.map(([p, cls, t, d]) => `<li class="parte ${p}"><span class="cuadro ${cls}"></span><span><b>${t}</b><span class="sub">${d}</span></span></li>`).join('')}</ul>
+      <button class="btn quieto" data-a="verPlato">${ico('undo')}Ver de nuevo</button>
+      <p class="nota">Para tomar: agua o una bebida sin azúcar. Es una guía general para el almuerzo; no hay que usar el mismo plato en el desayuno ni en la once.</p></div>`;
   return `<div class="envoltura">${volver}
-    <div class="panel plato">
-      <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">
-        <circle cx="36" cy="36" r="34" fill="var(--bg)" stroke="var(--rule)" stroke-width="2"/>
-        <path d="M36 2a34 34 0 0 0 0 68z" fill="var(--acc)"/>
-        <path d="M36 36V2a34 34 0 0 1 34 34z" fill="var(--ink2)"/>
-        <path d="M36 36h34a34 34 0 0 1-34 34z" fill="var(--amb)"/>
-      </svg>
-      <ul class="leyenda"><li><span class="cuadro a"></span>Mitad: verduras</li><li><span class="cuadro b"></span>Un cuarto: pollo, pescado o legumbres</li><li><span class="cuadro c"></span>Un cuarto: pan, arroz o papa</li></ul>
-    </div>
+    <div class="opciones envuelve accesos">${accesos}</div>
+    <p class="sub grande">${G.intro}</p>
+    ${plato}
+    <p class="rotulo">Ideas para ${sec === 'colaciones' ? 'colaciones' : sec === 'once' ? 'la once' : 'el ' + sec}</p>
+    <div class="ideas">${G.ideas.map(([t, como, porque]) => `<div class="panel idea"><p class="h3">${t}</p><p class="sub grande">${como}</p><p class="sub">${porque}</p></div>`).join('')}</div>
+    ${(G.notas || []).map((n) => `<p class="nota aviso-info">${ico('info')}${n}</p>`).join('')}
+    ${sec === 'colaciones' ? '' : `<div class="panel"><p class="rotulo">Cuánto servir</p>${pauta.length
+      ? `<ul class="porciones">${pauta.map((x) => `<li><span>${esc(x)}</span></li>`).join('')}</ul><p class="nota">Pauta cargada para hoy.</p>`
+      : `<span class="chip amb">${ico('clock')}Porción pendiente de indicar</span><p class="nota">Las porciones las indica la nutricionista. Esta guía no da cantidades.</p>`}</div>`}
+    <p class="rotulo">En general</p>
     <div class="guia">${col('Sí', 'ok', 'check', GUIA.si)}${col('Con medida', 'amb', '', GUIA.medida)}${col('Evitar', 'rojo', 'x', GUIA.evitar)}</div>
-    <p class="nota">Sin sal agregada y sin azúcar. Guía general: valen primero las indicaciones de su médico y de la nutricionista.</p>
+    <p class="nota">Guía general basada en el método del plato de los CDC. Valen primero las indicaciones de su médico y de la nutricionista.</p>
   </div>`;
 }
 
@@ -82,9 +98,10 @@ function compras() {
   </div>`;
 }
 
-export function render(args) { return args[0] === 'compras' ? compras() : args[0] === 'guia' ? guia() : principal(); }
-export const titulo = (args) => (args[0] === 'compras' ? 'Compras' : args[0] === 'guia' ? 'Guía' : 'Comidas');
+export function render(args) { return args[0] === 'colaciones' ? organizarColaciones() : args[0] === 'compras' ? compras() : args[0] === 'guia' ? guia(args[1]) : principal(); }
+export const titulo = (args) => (args[0] === 'colaciones' ? 'Colaciones' : args[0] === 'compras' ? 'Compras' : args[0] === 'guia' ? 'Guía' : 'Comidas');
 
+acciones.verPlato = () => { estado.ui.platoVez = (estado.ui.platoVez || 0) + 1; pintar(); };
 acciones.otraComida = (d) => { estado.ui.otraComida = d.k; pintar(); const c = porId('otra-' + d.k); if (c) c.focus(); };
 acciones.anotarComida = (d) => {
   const hoy = claveFecha(new Date()), it = itemsDelDia(hoy).find((x) => x.id === d.id);
@@ -118,4 +135,24 @@ acciones.borrarComprados = () => {
   fuera.forEach((i) => db.borrar('compras', i.id));
   aviso(fuera.length === 1 ? 'Se borró 1 producto' : `Se borraron ${fuera.length} productos`, () => fuera.forEach((i) => db.poner('compras', i.id, paraGuardar(i))));
   pintar();
+};
+
+
+function organizarColaciones() {
+  if (!esAdmin()) return `<div class="envoltura">${volver}<p>Los horarios los administra Fabián.</p></div>`;
+  const c = estado.config.colaciones || {}, sugeridas = colacionesDe(Object.assign({}, estado.config, { colaciones: {} }));
+  return `<div class="envoltura">${volver}<p class="sub grande">Son opcionales. Las cantidades y la frecuencia las indica la nutricionista.</p>
+    <div class="campo"><label for="col-mostrar">Mostrar en Hoy y Comidas</label><select class="texto" id="col-mostrar"><option value="si"${c.mostrar !== false ? ' selected' : ''}>Sí, como opcionales</option><option value="no"${c.mostrar === false ? ' selected' : ''}>No mostrar</option></select></div>
+    ${COLACIONES.map(([k,nombre]) => `<div class="panel"><h2 class="h3">${nombre}</h2>
+      <div class="campo"><label for="${k}-hora">Hora orientativa</label><input class="texto" type="time" id="${k}-hora" value="${esc(c[k+'Hora'] || '')}"><p class="nota">Vacío: entre las comidas (${(sugeridas.find((x) => x.k === k) || {}).hora || 'falta horario de comidas'}).</p></div>
+      <div class="campo"><label for="${k}-texto">Qué preparar</label><input class="texto" id="${k}-texto" maxlength="250" value="${esc(c[k+'Texto'] || '')}" placeholder="Idea o indicación de la nutricionista"></div>
+      <div class="campo"><label for="${k}-porcion">Porción indicada</label><input class="texto" id="${k}-porcion" maxlength="200" value="${esc(c[k+'Porcion'] || '')}" placeholder="Dejar vacío si todavía no la indicó"></div></div>`).join('')}
+    <button class="btn pri" data-a="guardarColaciones">${ico('check')}Guardar colaciones</button></div>`;
+}
+acciones.guardarColaciones = () => {
+  if (!esAdmin()) return;
+  const c = { mostrar: val('col-mostrar') === 'si' };
+  COLACIONES.forEach(([k]) => { c[k+'Hora'] = val(k+'-hora'); c[k+'Texto'] = val(k+'-texto'); c[k+'Porcion'] = val(k+'-porcion'); });
+  db.guardarConfig({ colaciones: c, editado: { quien: estado.quien, ts: Date.now() } });
+  aviso('Colaciones guardadas'); location.hash = '#comidas';
 };
