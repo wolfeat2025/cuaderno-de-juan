@@ -1,6 +1,7 @@
 // Infografías educativas de la app: SVG y CSS nativos, sin dependencias ni ritmo clínico simulado.
 import { estado, acciones, pintar } from './nucleo.js';
 import { esc, ico } from './util.js';
+import { RECORRIDOS, dibujoRecorrido } from './recorridos.js';
 
 const TEMAS = {
   corazon: [
@@ -29,61 +30,100 @@ const FUENTES = {
   dieta: ['AHA · Alimentación y corazón', 'https://www.heart.org/en/healthy-living/healthy-eating/eat-smart/nutrition-basics/aha-diet-and-lifestyle-recommendations'],
 };
 
-const corazon = `<g class="cv-organo"><path class="cv-cuerpo" d="M176 160c-20-10-54-32-58-62-4-26 9-44 28-45 11-1 18 5 23 13 3-17 15-24 27-20 21 6 35 27 33 50-3 30-28 52-53 64Z"/><path class="cv-relieve" d="M168 67c-1 23 18 34 11 68M188 55c-6 20 8 31 24 34M143 78c7 17 3 35 23 45"/><path class="cv-vaso" d="M172 66V38c0-11 8-17 16-17h15v17h-12v24M146 54V36h-15V23h28v37"/><path class="cv-coronaria" d="m176 73-9 29 5 36m-4-35-18-7m22 16 19-12"/></g>`;
-const tubo = `<path class="cv-tubo-ext" d="M40 102H320"/><path class="cv-tubo-int" d="M40 102H320"/><path class="cv-flujo" d="M42 102H318"/>`;
-const nodos = `<circle class="cv-nodo cv-p1" cx="80" cy="102" r="8"/><circle class="cv-nodo cv-p2" cx="150" cy="102" r="8"/><circle class="cv-nodo cv-p3" cx="220" cy="102" r="8"/>`;
-const plato = `<g class="cv-plato"><circle class="cv-loza" cx="178" cy="102" r="70"/><path class="cv-verde" d="M178 42a60 60 0 0 0 0 120Z"/><path class="cv-prote" d="M178 102V42a60 60 0 0 1 60 60Z"/><path class="cv-carbo" d="M178 102h60a60 60 0 0 1-60 60Z"/><path class="cv-linea-plato" d="M178 42v120m0-60h60"/><circle class="cv-brote" cx="144" cy="76" r="8"/><circle class="cv-brote" cx="143" cy="115" r="10"/><circle class="cv-brote" cx="157" cy="135" r="6"/></g>`;
-function escena(tipo) {
-  let cuerpo;
-  if (tipo === 'corazon') cuerpo = `<circle class="cv-halo" cx="177" cy="93" r="77"/><path class="cv-orbita" d="M85 150C-4 14 310-22 286 148"/>${corazon}<path class="cv-circuito cv-flujo" d="M79 164h49m102 0h49"/>`;
-  else if (tipo === 'cuidados') cuerpo = `<path class="cv-camino" d="M68 130Q180 20 292 130"/><g class="cv-apoyo cv-p1"><rect x="37" y="91" width="64" height="34" rx="17"/><path d="m68 92-1 32"/></g>${corazon}<g class="cv-apoyo cv-p3"><rect x="263" y="88" width="57" height="67" rx="9"/><path d="m275 120 10 10 22-24"/></g>`;
-  else if (tipo === 'camino') cuerpo = `<path class="cv-camino" d="M38 158C95 158 74 118 133 118S181 77 232 77s58-41 87-41"/><g class="cv-paso cv-p1"><circle cx="62" cy="153" r="16"/><path d="m55 153 5 6 10-13"/></g><g class="cv-paso cv-p2"><circle cx="169" cy="109" r="16"/><path d="m162 109 5 6 10-13"/></g><g class="cv-paso cv-p3"><circle cx="276" cy="64" r="16"/><path d="m269 64 5 6 10-13"/></g><g class="cv-persona"><circle cx="110" cy="37" r="10"/><path d="m107 52-8 29 23 13m-23-13-12 25m17-44 19 8m-25-8-17 9"/></g>`;
-  else if (tipo === 'azucar') cuerpo = `${tubo}${nodos}<g class="cv-cubos"><rect x="115" y="28" width="18" height="18" rx="4"/><rect x="144" y="39" width="15" height="15" rx="4"/><rect x="174" y="24" width="18" height="18" rx="4"/></g><path class="cv-union" d="M167 57v21"/><g class="cv-glucosa"><rect x="117" y="94" width="13" height="13" rx="3"/><rect x="183" y="94" width="13" height="13" rx="3"/><rect x="252" y="94" width="13" height="13" rx="3"/></g>`;
-  else if (tipo === 'sal') cuerpo = `<g class="cv-salero"><path d="m68 47 35-15 25 53-35 15Z"/><path d="m64 42 36-16 4 9-36 16Z"/><circle cx="95" cy="62" r="2"/><circle cx="101" cy="71" r="2"/></g><path class="cv-union" d="M143 73h30"/><circle class="cv-reloj" cx="236" cy="97" r="52"/><path class="cv-escala" d="M202 116a39 39 0 1 1 68 0"/><path class="cv-aguja" d="m236 97 19-24"/><circle class="cv-eje" cx="236" cy="97" r="6"/>`;
-  else if (tipo === 'grasas') cuerpo = `${tubo}<path class="cv-placa" d="M135 77h83c-13 4-18 13-34 13s-32-9-49-13Zm-25 50h96c-16-4-20-12-39-12s-34 8-57 12Z"/>${nodos}<path class="cv-union" d="M166 45h28m-14-8v16"/>`;
-  else cuerpo = `${plato}<path class="cv-camino" d="M76 182h209"/><g class="cv-paso cv-p1"><circle cx="89" cy="182" r="6"/></g><g class="cv-paso cv-p2"><circle cx="179" cy="182" r="6"/></g><g class="cv-paso cv-p3"><circle cx="269" cy="182" r="6"/></g>`;
-  return `<svg class="cv-escena cv-${tipo}" viewBox="0 0 360 210" role="img" aria-label="${esc({corazon:'Esquema del corazón y circulación',cuidados:'Remedios y controles acompañan el cuidado del corazón',camino:'Camino por pasos, guiado por el equipo médico',azucar:'Carbohidratos y glucosa en la sangre',sal:'Sodio y presión arterial',grasas:'Esquema general de placa en un vaso sanguíneo',plato:'Plato equilibrado y cuidados sostenidos'}[tipo])}"><rect class="cv-fondo" x="1" y="1" width="358" height="208" rx="24"/>${cuerpo}</svg>`;
-}
 function ui(grupo, inicial = 0) {
-  if (!estado.ui.infografias) estado.ui.infografias = {};
-  if (!estado.ui.infografias[grupo]) estado.ui.infografias[grupo] = { paso: inicial, pausa: false };
-  return estado.ui.infografias[grupo];
+ if (!estado.ui.infografias) estado.ui.infografias = {};
+ if (!estado.ui.infografias[grupo]) estado.ui.infografias[grupo] = { paso: inicial, etapa:0, pausa:false, modo:null };
+ return estado.ui.infografias[grupo];
 }
 export function infografia(grupo, inicial = 0) {
-  const lista = TEMAS[grupo] || TEMAS.corazon, u = ui(grupo, inicial), paso = lista[u.paso] ? u.paso : 0, tema = lista[paso], f = FUENTES[tema.fuente];
-  const voz = typeof window.speechSynthesis !== 'undefined' && typeof window.SpeechSynthesisUtterance !== 'undefined';
-  return `<section class="panel cv-infografia${u.pausa ? ' cv-pausada' : ''}" aria-label="Explicación visual" data-k="infografia-${grupo}">
-    <div class="cv-conceptos" role="group" aria-label="Elige qué quieres entender">${lista.map((t,i) => `<button type="button" class="cv-concepto${i===paso?' sel':''}" data-a="conceptoVisual" data-grupo="${grupo}" data-v="${i}" aria-pressed="${i===paso}">${esc(t.boton)}</button>`).join('')}</div>
-    <div class="cv-lamina" data-k="lamina-${grupo}-${paso}">${escena(tema.dibujo)}<h2 class="h2">${esc(tema.titulo)}</h2><p class="sub grande">${esc(tema.texto)}</p></div>
-    <div class="cv-controles"><button type="button" class="mini-btn" data-a="pausaVisual" data-grupo="${grupo}" aria-pressed="${u.pausa}">${ico(u.pausa?'right':'clock')}${u.pausa?'Reanudar':'Pausar'}</button>${voz?`<button type="button" class="mini-btn" data-a="vozVisual" data-grupo="${grupo}" aria-pressed="${u.hablando?'true':'false'}">${ico('info')}${u.hablando?'Detener voz':'Escuchar'}</button>`:''}<button type="button" class="mini-btn" data-a="siguienteVisual" data-grupo="${grupo}">Siguiente${ico('right')}</button></div>
-    <p class="nota cv-aclaracion">Ilustración general · no representa tu corazón en vivo.</p>
-    ${u.errorVoz?'<p class="nota" role="status">No se pudo reproducir la voz. Puedes leer la explicación.</p>':''}
-    <details class="comida-menu" data-k="mas-visual-${grupo}-${paso}"><summary>Entender un poco más</summary><p class="sub">${esc(tema.detalle)}</p><p class="nota"><a class="enlace" href="${esc(f[1])}" target="_blank" rel="noopener">${esc(f[0])}</a> · Consultado: 14 nov 2026</p></details>
-  </section>`;
+ const lista=TEMAS[grupo]||TEMAS.corazon,u=ui(grupo,inicial),paso=lista[u.paso]?u.paso:0,tema=lista[paso],ruta=RECORRIDOS[grupo][paso],etapa=Number.isInteger(u.etapa)?u.etapa:0,f=FUENTES[tema.fuente];
+ const voz=typeof window.speechSynthesis!=='undefined'&&typeof window.SpeechSynthesisUtterance!=='undefined';
+ const cuidado=u.comparar==='cuidar'&&ruta.cuidado;
+ const visible=cuidado?{...ruta,pasos:ruta.cuidado}:ruta;
+ return `<section class="panel cv-infografia rj-player${u.pausa?' cv-pausada':''}" data-k="infografia-${grupo}" aria-label="Explicación visual">
+ <div class="cv-conceptos" role="group" aria-label="Elige una explicación">${lista.map((t,i)=>`<button class="cv-concepto${i===paso?' sel':''}" data-a="conceptoVisual" data-grupo="${grupo}" data-v="${i}" aria-pressed="${i===paso}">${esc(t.boton)}</button>`).join('')}</div>
+ <div class="rj-heading"><span class="nota">${paso+1} de ${lista.length}</span><span class="rj-state">${etapa===3?'Recorrido completo':`Parte ${etapa+1} de 3`}</span></div>
+ <h2 class="h2">${esc(tema.titulo)}</h2>
+ <div class="cv-controles">${u.modo?`<button class="mini-btn" data-a="pausaVisual" data-grupo="${grupo}" aria-pressed="${u.pausa}">${ico(u.pausa?'right':'clock')}${u.pausa?'Continuar':'Pausar'}</button><button class="mini-btn" data-a="detenerVisual" data-grupo="${grupo}">Detener</button>`:`<button class="mini-btn" data-a="animarVisual" data-grupo="${grupo}">${etapa===3?'Repetir':'Ver animación'}</button>${voz?`<button class="mini-btn" data-a="vozVisual" data-grupo="${grupo}">${ico('info')}Escuchar</button>`:''}`}<button class="mini-btn" data-a="siguienteVisual" data-grupo="${grupo}"${paso===lista.length-1?' disabled':''}>Siguiente${ico('right')}</button></div>
+ <div class="rj-stage" data-k="escena-${grupo}-${paso}-${etapa}-${cuidado?'cuidar':'explicar'}">${dibujoRecorrido(visible,etapa)}</div>
+ <p class="rj-caption">${esc(etapa===3?(cuidado?ruta.comparacion.cuidar:ruta.cierre):visible.pasos[etapa][2])}</p>
+ <p class="nota">Toca una parte para verla de cerca.</p>
+ <div class="rj-parts" role="group" aria-label="Partes del recorrido">${ruta.pasos.map((p,i)=>`<button data-a="parteVisual" data-grupo="${grupo}" data-v="${i}" aria-pressed="${etapa===i}" class="rj-part${etapa===i?' sel':''}"><span>${i+1}</span>${esc(cuidado?ruta.cuidado[i][0]:p[0])}</button>`).join('')}</div>
+ <button class="btn quieto" data-a="parteVisual" data-grupo="${grupo}" data-v="3" aria-pressed="${etapa===3}">Ver recorrido completo</button>
+ ${etapa===3&&ruta.comparacion?`<div class="rj-compare"><button class="rj-avoid" data-a="compararVisual" data-grupo="${grupo}" data-v="evitar" aria-pressed="${!cuidado}"><b>${ico('alert')}Para evitar</b><p>${esc(ruta.comparacion.evitar)}</p></button><button class="rj-care" data-a="compararVisual" data-grupo="${grupo}" data-v="cuidar" aria-pressed="${!!cuidado}"><b>${ico('check')}Para cuidarme</b><p>${esc(ruta.comparacion.cuidar)}</p></button><p class="nota">${esc(ruta.comparacion.nota)}</p></div>`:''}
+
+ ${u.final?'<p class="nota" role="status">Terminó la explicación. Puedes repetirla o tocar una parte.</p>':''}
+ ${u.errorVoz?'<p class="nota" role="status">No se pudo reproducir la voz. Puedes ver la animación y leer el relato.</p>':''}
+ <p class="nota cv-aclaracion">Ilustración educativa · no muestra tu estado actual.</p>
+ <details class="comida-menu" data-k="relato-${grupo}-${paso}"><summary>Leer la explicación</summary>${ruta.voz.map(t=>`<p class="sub">${esc(t.replace(/\[[^\]]+\]/g,'').trim())}</p>`).join('')}<p class="nota"><a class="enlace" href="${esc(f[1])}" target="_blank" rel="noopener">${esc(f[0])}</a></p></details>
+ </section>`;
 }
 
-let secuenciaVoz = 0;
-function detenerVoz() {
-  secuenciaVoz++;
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
-  Object.values(estado.ui.infografias || {}).forEach((u) => { u.hablando = false; });
+let secuencia=0,reloj=null,grupoActivo=null,locucion=null;
+function detener() {
+ secuencia++;clearTimeout(reloj);reloj=null;
+ if(window.speechSynthesis)window.speechSynthesis.cancel();
+ Object.values(estado.ui.infografias||{}).forEach(u=>{u.modo=null;u.pausa=false;});
+ grupoActivo=null;locucion=null;
 }
-acciones.conceptoVisual = (d) => {
-  if (!TEMAS[d.grupo] || !TEMAS[d.grupo][Number(d.v)]) return;
-  detenerVoz(); const u = ui(d.grupo); u.paso = Number(d.v); u.errorVoz = false; pintar();
+function enfocar(g) { requestAnimationFrame(()=>{const el=document.querySelector('[data-k="infografia-'+g+'"] .rj-heading');if(el)el.scrollIntoView({block:'start',behavior:'auto'});}); }
+export function detenerRecorridos() { detener(); }
+function valido(g){return !!RECORRIDOS[g];}
+function preparar(g,modo) {
+ detener();const u=ui(g);u.etapa=0;u.comparar=null;u.pausa=false;u.final=false;u.errorVoz=false;u.modo=modo;grupoActivo=g;return secuencia;
+}
+function animar(g,token) {
+ if(token!==secuencia||grupoActivo!==g)return;
+ const u=ui(g);if(u.pausa)return;
+ reloj=setTimeout(()=>{if(token!==secuencia||u.pausa)return;
+  if(u.etapa<3){u.etapa++;pintar();animar(g,token);}else{u.modo=null;u.final=true;grupoActivo=null;pintar();}
+ },u.etapa===3?6500:4500);
+}
+function decir(g,token) {
+ if(token!==secuencia||grupoActivo!==g)return;
+ const u=ui(g),ruta=RECORRIDOS[g][u.paso];
+ if(u.pausa)return;
+ const v=new SpeechSynthesisUtterance(ruta.voz[u.etapa].replace(/\[[^\]]+\]/g,'').trim());locucion=v;
+ v.lang='es-CL';v.rate=.9;
+ v.onend=()=>{
+  if(token!==secuencia)return;
+  locucion=null;
+  if(u.etapa<3)u.etapa++;
+  else if(u.paso<RECORRIDOS[g].length-1){u.paso++;u.etapa=0;enfocar(g);}
+  else {u.modo=null;u.final=true;grupoActivo=null;pintar();return;}
+  pintar();if(!u.pausa)decir(g,token);
+ };
+ v.onerror=()=>{if(token!==secuencia)return;detener();u.errorVoz=true;pintar();};
+ try{window.speechSynthesis.speak(v);}catch(e){detener();u.errorVoz=true;pintar();}
+}
+acciones.conceptoVisual=d=>{
+ if(!valido(d.grupo)||!RECORRIDOS[d.grupo][Number(d.v)])return;
+ detener();const u=ui(d.grupo);Object.assign(u,{paso:Number(d.v),etapa:0,comparar:null,final:false,errorVoz:false});pintar();enfocar(d.grupo);
 };
-acciones.siguienteVisual = (d) => { if (TEMAS[d.grupo]) acciones.conceptoVisual({ grupo:d.grupo, v:(ui(d.grupo).paso+1)%TEMAS[d.grupo].length }); };
-acciones.pausaVisual = (d) => { const u=ui(d.grupo); u.pausa=!u.pausa; pintar(); };
-acciones.vozVisual = (d) => {
-  if (!TEMAS[d.grupo] || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
-  const u=ui(d.grupo), estaba=u.hablando; detenerVoz();
-  if (estaba) { pintar(); return; }
-  const t=TEMAS[d.grupo][u.paso], voz=new SpeechSynthesisUtterance(`${t.titulo}. ${t.texto} ${t.detalle}`), sec=secuenciaVoz;
-  voz.lang='es-CL'; voz.rate=0.9; u.hablando=true; u.errorVoz=false;
-  voz.onend=()=>{if(sec===secuenciaVoz){u.hablando=false;pintar();}};
-  voz.onerror=()=>{if(sec===secuenciaVoz){u.hablando=false;u.errorVoz=true;pintar();}};
-  try { window.speechSynthesis.speak(voz); } catch(e) { u.hablando=false; u.errorVoz=true; }
-  pintar();
+acciones.parteVisual=d=>{
+ if(!valido(d.grupo)||!Number.isInteger(Number(d.v))||Number(d.v)<0||Number(d.v)>3)return;
+ detener();const u=ui(d.grupo);u.etapa=Number(d.v);u.final=false;pintar();enfocar(d.grupo);
 };
-window.addEventListener('hashchange', detenerVoz);
-document.addEventListener('visibilitychange', ()=>{if(document.hidden) detenerVoz();});
+acciones.compararVisual=d=>{if(!valido(d.grupo)||!['evitar','cuidar'].includes(d.v))return;detener();const u=ui(d.grupo);u.etapa=3;u.comparar=d.v;pintar();enfocar(d.grupo);};
+acciones.siguienteVisual=d=>{
+ if(!valido(d.grupo))return;const u=ui(d.grupo),modo=u.modo,pausa=u.pausa;
+ if(u.paso>=RECORRIDOS[d.grupo].length-1)return;
+ acciones.conceptoVisual({grupo:d.grupo,v:u.paso+1});
+ if(modo==='voz'&&!pausa)acciones.vozVisual(d);
+ else if(modo==='animacion'&&!pausa)acciones.animarVisual(d);
+};
+acciones.animarVisual=d=>{if(!valido(d.grupo))return;const token=preparar(d.grupo,'animacion');pintar();enfocar(d.grupo);animar(d.grupo,token);};
+acciones.vozVisual=d=>{if(!valido(d.grupo)||!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;const token=preparar(d.grupo,'voz');pintar();enfocar(d.grupo);decir(d.grupo,token);};
+acciones.pausaVisual=d=>{
+ if(!valido(d.grupo)||grupoActivo!==d.grupo)return;
+ const u=ui(d.grupo);u.pausa=!u.pausa;
+ if(u.modo==='voz'){
+  if(u.pausa)window.speechSynthesis.pause();
+  else if(locucion)window.speechSynthesis.resume();
+  else decir(d.grupo,secuencia);
+ }else{clearTimeout(reloj);if(!u.pausa)animar(d.grupo,secuencia);}
+ pintar();
+};
+acciones.detenerVisual=()=>{detener();pintar();};
+window.addEventListener('hashchange',detener);
+document.addEventListener('visibilitychange',()=>{if(document.hidden){detener();pintar();}});
