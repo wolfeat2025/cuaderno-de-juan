@@ -5,6 +5,7 @@ import * as db from '../db.js';
 import { esc, ico, val, porId, claveFecha, deClave, hhmm, fechaCorta, fechaLarga, DIAS, MESES, mayus } from '../util.js';
 import { TIPOS, ETIQUETA, clasificar, valorTexto, detalleMomento } from '../datos.js';
 import { infografia } from '../visuales.js';
+import { tarjetaRecuperacion } from './recuperacion.js';
 
 export const ESTUDIOS_BASE = [
   {
@@ -420,7 +421,7 @@ function editorCorazon() {
 function vistaVisualJuan(sub, d) {
   return `<div class="envoltura corazon-vista juan-visual">
     <a class="btn quieto izq" href="#hoy">${ico('left')}Volver a Hoy</a>
-    ${infografia('corazon', sub === 'recuperacion' ? 2 : 0)}
+    ${tarjetaRecuperacion()}
     <details class="panel comida-menu" data-k="informes-visuales"${sub === 'sabemos' || sub === 'falta' ? ' open' : ''}><summary>Mis registros e informes</summary>
       ${d.resumenGeneral ? `<p class="sub grande">${esc(d.resumenGeneral)}</p>` : '<p class="sub">Aquí puedes ver los estudios anotados y los que faltan.</p>'}
       ${bloqueRegistrosCasa()}${bloqueInformes(d, sub === 'falta' ? 'falta' : 'todo')}

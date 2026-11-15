@@ -829,3 +829,284 @@ textarea.texto { resize: none; line-height: 1.35; }
 @keyframes rj-caer { 0%,100% {opacity:.4;} 50% {opacity:1;} }
 @keyframes rj-presion { 0%,100% {transform:rotate(-12deg);} 50% {transform:rotate(10deg);} }
 @media(prefers-reduced-motion:reduce) { .rj-player * { animation:none!important; transition:none!important; } }
+
+/* ---------- Medir: guía de rango por momento del día e historial compacto (v12) ---------- */
+.guia-rango { display: flex; flex-direction: column; gap: 14px; }
+.fila-rango { display: flex; flex-direction: column; gap: 6px; }
+.cab-rango { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cab-rango .tit { display: flex; align-items: center; gap: 8px; font-size: 17px; }
+.cab-rango .v { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.barra-rango { position: relative; height: 16px; border-radius: 8px; overflow: visible; background: var(--rule); }
+.barra-rango .tramo { position: absolute; top: 0; bottom: 0; }
+.barra-rango .tramo:first-child { border-radius: 8px 0 0 8px; }
+.barra-rango .tramo:last-of-type { border-radius: 0 8px 8px 0; }
+.tramo.verde { background: var(--acc); }
+.tramo.amarillo { background: var(--amb); }
+.tramo.rojo { background: var(--red); }
+.barra-rango .punto { position: absolute; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: var(--sup); box-shadow: 0 0 0 4px var(--ink), 0 2px 6px rgba(0,0,0,.25); }
+.marcas-rango { position: relative; height: 20px; }
+.marcas-rango .marca { position: absolute; transform: translateX(-50%); font-size: 14px; font-weight: 700; color: var(--ink2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ley-rango { display: flex; gap: 16px; flex-wrap: wrap; font-size: 15px; font-weight: 700; color: var(--ink2); }
+.ley-rango span { display: flex; align-items: center; gap: 6px; }
+.ley-rango i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.ley-rango i.verde { background: var(--acc); } .ley-rango i.amarillo { background: var(--amb); } .ley-rango i.rojo { background: var(--red); }
+.reg.compacto { padding: 4px 0; gap: 2px; }
+.reg.compacto .toca-area { gap: 10px; min-height: 44px; }
+.reg.compacto .v { font-size: 20px; }
+.reg.compacto .luz.verde { color: var(--acc); } .reg.compacto .luz.amarillo { color: var(--amb); } .reg.compacto .luz.rojo { color: var(--red); }
+.reg.compacto .quien { margin-left: auto; font-size: 15px; color: var(--ink2); }
+.reg.compacto .sub { padding-left: 64px; font-size: 15px; }
+
+/* ---------- Comidas: ¿Por qué importa? en tarjetas visuales (v12) ---------- */
+.ce-tarjetas { display: flex; flex-direction: column; gap: 10px; }
+.ce-tarjeta { background: var(--sup); border-radius: 18px; padding: 12px; display: grid; grid-template-columns: 56% 1fr; column-gap: 12px; align-items: center; align-content: center; animation: ce-entra .5s ease-out both; }
+.ce-tarjeta svg { grid-row: 1 / span 2; width: 100%; height: auto; overflow: visible; }
+.ce-tarjeta .tit { align-self: end; } .ce-tarjeta .sub { align-self: start; }
+.ce-tarjeta .tit { font-size: 17px; font-weight: 800; }
+.ce-tarjeta .sub { font-size: 15px; }
+.ce-2 { animation-delay: .9s; } .ce-3 { animation-delay: 1.8s; } .ce-4 { animation-delay: 2.7s; }
+@keyframes ce-entra { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.ce-tarjeta svg * { vector-effect: non-scaling-stroke; }
+.ce-salero rect { fill: var(--bg2); stroke: var(--ink2); stroke-width: 2; } .ce-salero .tapa { fill: var(--ink2); }
+.ce-salero .grano { fill: var(--ink2); }
+.ce-medidor path { fill: none; stroke-width: 9; stroke-linecap: butt; }
+.z-verde { stroke: var(--acc); } .z-amb { stroke: var(--amb); } .z-rojo { stroke: var(--red); }
+.ce-medidor .aguja { stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; }
+.ce-medidor .eje { fill: var(--ink); }
+.aguja.alta { transform: rotate(48deg); }
+.aguja.baja { transform: rotate(-58deg); animation: ce-aguja 1.4s .5s ease-in-out both; }
+@keyframes ce-aguja { from { transform: rotate(48deg); } to { transform: rotate(-58deg); } }
+.ce-flecha { fill: none; stroke: var(--ink2); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.ce-base { stroke: var(--rule); stroke-width: 2; stroke-dasharray: 4 4; }
+.ce-cubos rect { fill: var(--sup); stroke: var(--amb); stroke-width: 2.5; }
+.ce-gota { fill: var(--acc-soft); stroke: var(--acc); stroke-width: 2.5; }
+.ce-curva { fill: none; stroke-width: 4.5; stroke-linecap: round; stroke-dasharray: 260; stroke-dashoffset: 0; }
+.ce-curva.pico { stroke: var(--amb); } .ce-curva.suave { stroke: var(--acc); }
+.ce-2 .ce-curva { animation: ce-traza 1.4s 1.2s ease-out both; }
+@keyframes ce-traza { from { stroke-dashoffset: 260; } to { stroke-dashoffset: 0; } }
+.ce-loza { fill: var(--bg); stroke: var(--rule); stroke-width: 3; }
+.ce-a { fill: var(--acc); } .ce-b { fill: var(--ink2); } .ce-c { fill: var(--amb); }
+.ce-tarjeta text { font-size: 22px; font-weight: 800; fill: var(--ink); }
+.ce-escalon { fill: var(--acc-soft); stroke: var(--acc); stroke-width: 2; animation: ce-entra .4s ease-out both; }
+.ce-4 .e0 { animation-delay: 3s; } .ce-4 .e1 { animation-delay: 3.3s; } .ce-4 .e2 { animation-delay: 3.6s; } .ce-4 .e3 { animation-delay: 3.9s; }
+.ce-corazon { fill: var(--red); transform-origin: 190px 14px; animation: ce-entra .5s 4.2s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .ce-tarjeta, .ce-tarjeta * { animation: none !important; } }
+
+/* ---------- Actividades y cuidados: vista familiar compacta (v12) ---------- */
+.de-a-poco { display: flex; flex-direction: column; gap: 10px; }
+.dap-pasos { display: flex; align-items: flex-start; }
+.dap-paso { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; animation: ce-entra .5s ease-out both; }
+.dap-2 { animation-delay: .6s; } .dap-3 { animation-delay: 1.2s; }
+.dap-ic { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--acc-soft); color: var(--acc-ink); margin-bottom: 4px; }
+.dap-ic .ico { width: 26px; height: 26px; }
+.dap-3 .dap-ic { background: var(--acc); color: var(--on-acc); }
+.dap-paso .tit { font-size: 16px; font-weight: 800; } .dap-paso .sub { font-size: 14px; }
+.dap-linea { flex: 0 0 18px; height: 3px; margin-top: 25px; background: var(--acc); border-radius: 2px; opacity: .5; }
+.grupo-cuidado { display: flex; flex-direction: column; gap: 8px; border-left: 6px solid var(--acc); }
+.grupo-cuidado.g-evitar { border-left-color: var(--amb); }
+.grupo-cuidado.g-consultar { border-left-color: var(--ink2); }
+.act-fila { display: flex; gap: 12px; align-items: flex-start; padding: 6px 0; border-top: 1px solid var(--rule); }
+.act-fila:first-of-type { border-top: 0; }
+.act-ic { flex: none; width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--acc-soft); color: var(--acc-ink); }
+.act-fila.amb .act-ic { background: var(--amb-soft); color: var(--amb-ink); }
+.act-fila.neutro .act-ic { background: var(--bg2); color: var(--ink2); }
+.act-fila .tit { font-size: 17px; font-weight: 800; }
+.act-limite { display: flex; gap: 6px; align-items: center; color: var(--acc-ink); font-weight: 700; }
+@media (prefers-reduced-motion: reduce) { .dap-paso { animation: none; } }
+
+/* ---------- Medir: peso de la semana (v12) ---------- */
+.peso-semana svg { overflow: visible; }
+.peso-prom { stroke: var(--ink2); stroke-width: 2; stroke-dasharray: 6 6; opacity: .7; animation: aclarar .8s 1.2s both; }
+.peso-linea { fill: none; stroke: var(--azu-ink); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 700; animation: ce-traza-peso 1.6s .2s ease-out both; }
+@keyframes ce-traza-peso { from { stroke-dashoffset: 700; } to { stroke-dashoffset: 0; } }
+.peso-punto { animation: peso-pop .5s cubic-bezier(.3,1.6,.5,1) both; transform-box: fill-box; transform-origin: center; }
+@keyframes peso-pop { from { opacity: 0; transform: scale(.2); } to { opacity: 1; transform: none; } }
+.peso-punto circle { fill: var(--sup); stroke: var(--azu-ink); stroke-width: 3.5; }
+.peso-punto text { font-size: 14px; font-weight: 800; fill: var(--ink); }
+.peso-dia { font-size: 13px; font-weight: 700; fill: var(--ink2); }
+.peso-dia.hoy { fill: var(--ink); font-weight: 900; }
+.reg.compacto .luz.neutro { color: var(--ink2); }
+.t-peso { --t-ink: var(--azu-ink); --t-soft: var(--azu-soft); }
+@media (prefers-reduced-motion: reduce) { .peso-linea, .peso-punto, .peso-prom { animation: none; } }
+
+/* ---------- Comidas: carga glucémica (v12) ---------- */
+.detectados { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 16px; background: var(--bg2); }
+.det-fila { display: flex; flex-direction: column; gap: 4px; }
+.det-fila .tit { font-size: 17px; font-weight: 800; }
+.opcion.chica { min-height: 40px; padding: 0 12px; font-size: 15px; }
+.det-no { display: flex; gap: 6px; align-items: center; font-size: 15px; color: var(--ink2); }
+.det-total { padding-top: 6px; border-top: 1px solid var(--rule); }
+.cg-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; font-size: 16px; font-weight: 800; background: var(--acc-soft); color: var(--acc-ink); }
+.cg-chip.chico { font-size: 14px; padding: 4px 10px; margin-top: 4px; }
+.cg-chip.media { background: var(--amb-soft); color: var(--amb-ink); }
+.cg-chip.alta { background: var(--red-soft); color: var(--red-ink); }
+.cg-barras { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; }
+.cg-barras i { width: 4px; border-radius: 2px; background: currentColor; opacity: .25; }
+.cg-barras i:nth-child(1) { height: 6px; opacity: 1; } .cg-barras i:nth-child(2) { height: 10px; } .cg-barras i:nth-child(3) { height: 14px; }
+.cg-chip.media .cg-barras i:nth-child(2), .cg-chip.alta .cg-barras i:nth-child(2), .cg-chip.alta .cg-barras i:nth-child(3) { opacity: 1; }
+.azucar-dia { display: flex; flex-direction: column; gap: 8px; }
+.barra-cg { position: relative; display: flex; gap: 3px; height: 30px; border-radius: 10px; background: var(--bg2); overflow: hidden; }
+.tramo-cg { display: flex; align-items: center; justify-content: center; background: var(--acc); color: var(--on-acc); font-size: 12px; animation: crece-cg .8s ease-out both; transform-origin: left; }
+.tramo-cg.media { background: var(--amb); } .tramo-cg.alta { background: var(--red); }
+.tramo-cg:nth-child(2) { animation-delay: .25s; } .tramo-cg:nth-child(3) { animation-delay: .5s; } .tramo-cg:nth-child(4) { animation-delay: .75s; }
+@keyframes crece-cg { from { transform: scaleX(0); } to { transform: none; } }
+.marca-cg { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink2); opacity: .5; }
+.ley-cg { display: grid; grid-template-columns: 50% 25% 25%; font-size: 14px; font-weight: 700; color: var(--ink2); }
+.cg-relacion { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 17px; }
+.cg-relacion b.suave { color: var(--acc-ink); } .cg-relacion b.media { color: var(--amb-ink); } .cg-relacion b.alta { color: var(--red-ink); }
+@media (prefers-reduced-motion: reduce) { .tramo-cg { animation: none; } }
+
+/* ---------- Mi recuperación: entrada, lista, reproductor y escenas (v13) ---------- */
+.rec-entrada, .rec-seguir { display: flex; align-items: center; gap: 16px; padding: 18px; border-radius: 24px; background: var(--acc); color: var(--on-acc); text-decoration: none; box-shadow: var(--sombra); }
+.rec-entrada b, .rec-seguir b { display: block; font-size: 22px; font-weight: 900; }
+.rec-entrada span span, .rec-seguir span span { display: block; font-size: 16px; font-weight: 700; opacity: .92; }
+.rec-entrada.compacta { padding: 14px; }
+.rec-entrada.compacta .rec-play-g { width: 56px; height: 56px; }
+.rec-play-g { flex: none; width: 72px; height: 72px; border-radius: 50%; background: var(--on-acc); color: var(--acc); display: flex; align-items: center; justify-content: center; }
+.rec-play-g .ico { width: 34px; height: 34px; margin-left: 4px; }
+.rec-caps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rec-caps a { display: flex; align-items: center; gap: 14px; padding: 12px 14px; min-height: 64px; border-radius: 18px; background: var(--sup); color: var(--ink); text-decoration: none; box-shadow: var(--sombra); }
+.rec-caps .rec-num { flex: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--bg2); font-size: 19px; font-weight: 900; }
+.rec-caps a.visto .rec-num { background: var(--acc); color: var(--on-acc); }
+.rec-caps .tit { flex: 1; font-size: 19px; font-weight: 800; }
+.rec-barra { display: flex; gap: 6px; }
+.rec-barra span { flex: 1; height: 8px; border-radius: 4px; background: var(--rule); overflow: hidden; }
+.rec-barra span.hecho { background: var(--acc); }
+.rec-barra i { display: block; height: 100%; background: var(--acc); transition: width .3s linear; }
+.rec-titulo { margin: 0; font-size: 26px; font-weight: 900; line-height: 1.15; }
+.rec-escenario { position: relative; background: var(--sup); border-radius: 26px; box-shadow: var(--sombra); overflow: hidden; aspect-ratio: 360 / 280; }
+@supports not (aspect-ratio: 1) { .rec-escenario { height: 0; padding-bottom: 77.7%; } .rec-escenario > * { position: absolute; inset: 0; } }
+.rec-escena, .esc-svg { width: 100%; height: 100%; display: block; }
+.rec-escena { animation: rec-cambia .5s ease-out both; }
+@keyframes rec-cambia { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: none; } }
+.rec-portada { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 0; font: inherit; cursor: pointer; color: var(--ink); background: rgba(255,255,255,.74); }
+:root[data-tema="oscuro"] .rec-portada { background: rgba(26,29,34,.8); }
+@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) .rec-portada { background: rgba(26,29,34,.8); } }
+.rec-portada .rec-play-g { width: 104px; height: 104px; background: var(--acc); color: var(--on-acc); box-shadow: 0 6px 20px rgba(11,127,114,.35); animation: rec-respira 2.4s ease-in-out infinite; }
+.rec-portada .rec-play-g .ico { width: 48px; height: 48px; }
+.rec-portada b { font-size: 22px; font-weight: 900; }
+@keyframes rec-respira { 50% { transform: scale(1.06); } }
+.rec-sub { margin: 0; min-height: 96px; background: var(--sup); border-radius: 20px; padding: 14px 16px; font-size: 21px; line-height: 1.4; font-weight: 700; box-shadow: var(--sombra); }
+.rec-sub .falta { color: var(--ink2); opacity: .55; }
+.rec-controles { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rec-redondo { width: 84px; height: 84px; border-radius: 50%; border: 0; background: var(--acc); color: var(--on-acc); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.rec-redondo .ico { width: 38px; height: 38px; }
+.rec-hueco { width: 84px; }
+.btn.grande { min-height: 64px; font-size: 19px; }
+.rec-pregunta { position: absolute; inset: 0; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.rec-pregunta h2 { margin: 0; font-size: 22px; font-weight: 900; text-align: center; }
+.rec-ops { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rec-op { border: 3px solid var(--rule); background: var(--bg); border-radius: 18px; font: inherit; font-size: 16px; font-weight: 800; color: var(--ink); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px 4px; }
+.rec-op svg { width: 100%; max-width: 86px; height: auto; overflow: visible; }
+.rec-op.bien { border-color: var(--acc); background: var(--acc-soft); animation: pop .5s cubic-bezier(.3,1.6,.5,1) both; }
+.rec-op.no, .rec-op.apagada { opacity: .5; }
+.rec-resp { margin: 0; min-height: 24px; text-align: center; font-size: 18px; font-weight: 800; }
+.rec-resp.bien { color: var(--acc-ink); }
+
+/* Animaciones de las escenas (todas con retraso --d, y en pausa con .pausa) */
+.esc-svg .e { animation: e-entra .8s cubic-bezier(.25,1.35,.5,1) var(--d,0s) both; }
+.esc-svg .pop { animation: pop .6s cubic-bezier(.3,1.6,.5,1) var(--d,0s) both; transform-box: fill-box; transform-origin: center; }
+.esc-svg .cae { animation: cae 1s cubic-bezier(.45,0,.55,1) var(--d,0s) both; transform-box: fill-box; transform-origin: center; }
+.esc-svg .sale { animation: sale .6s ease-in var(--d,0s) forwards; }
+.esc-svg .sale-der { animation: sale-der .8s ease-in var(--d,0s) forwards; }
+.esc-svg .va { animation: va 1.2s cubic-bezier(.4,0,.2,1) var(--d,0s) both; transform-box: fill-box; transform-origin: center; }
+.esc-svg .traza path, .esc-svg .traza line { stroke-dasharray: 420; animation: traza 1.6s ease-out var(--d,0s) both; }
+.esc-svg .apaga { animation: apaga 1.2s ease var(--d,0s) both; }
+.esc-svg .cose path { stroke-dasharray: 80; animation: traza 2.4s ease-out var(--d,0s) both; }
+.esc-svg .late { animation: late 1.6s ease-in-out var(--d,0s) both; transform-box: fill-box; transform-origin: center; }
+.esc-svg .sube { animation: sube var(--dur,6s) ease-in-out var(--d,0s) both; }
+.esc-svg .camina { animation: camina var(--dur,6s) ease-in-out var(--d,0s) both; }
+.esc-svg .camina .paso, .esc-svg .e .paso { animation: paso .6s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: top; }
+.esc-svg .llena-x { animation: llena-x .7s ease-out var(--d,0s) both; transform-box: fill-box; transform-origin: left; }
+.esc-svg .placa .placa-c { animation: placa var(--dur,5s) ease-out var(--d,0s) both; }
+.esc-svg .gotea { animation: gotea 1.4s ease-in var(--d,0s) both; }
+.esc-svg .aguja-sube { transform-box: view-box; animation: aguja-sube 2s cubic-bezier(.4,0,.2,1) var(--d2,0s) both; }
+.esc-svg .aguja-sabor { animation: aguja-sabor 2.4s cubic-bezier(.4,0,.2,1) var(--d2,0s) both; }
+.esc-svg .aguja-baja { animation: aguja-baja 1.4s ease var(--d2,0s) both; }
+.esc-svg .fluye { animation: fluye 3.2s linear infinite; }
+@keyframes e-entra { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes pop { 0% { opacity: 0; transform: scale(.3); } 100% { opacity: 1; transform: none; } }
+@keyframes cae { 0% { opacity: 0; transform: translateY(-50px); } 25% { opacity: 1; } 100% { opacity: 1; transform: translate(var(--dx,0), var(--dy,80px)) scale(.72); } }
+@keyframes sale { to { opacity: 0; transform: translateY(16px); } }
+@keyframes sale-der { to { opacity: 0; transform: translateX(120px); } }
+@keyframes va { to { transform: translate(var(--dx), var(--dy)) scale(.85); } }
+@keyframes traza { from { stroke-dashoffset: 420; } to { stroke-dashoffset: 0; } }
+@keyframes apaga { from { opacity: 0; } to { opacity: 1; } }
+@keyframes late { 0%, 40%, 80% { transform: scale(1); } 20%, 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+@keyframes sube { 0% { transform: none; } 25% { transform: translate(66px,-38px); } 50% { transform: translate(132px,-76px); } 75%, 100% { transform: translate(198px,-114px); } }
+@keyframes camina { from { transform: none; } to { transform: translateX(180px); } }
+@keyframes paso { from { transform: skewX(-10deg); } to { transform: skewX(10deg); } }
+@keyframes llena-x { from { transform: scaleX(0); opacity: .3; } to { transform: none; opacity: 1; } }
+@keyframes placa { from { stroke-width: 0; } to { stroke-width: 22; } }
+@keyframes gotea { 0% { opacity: 0; transform: translateY(-10px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(70px); } }
+@keyframes aguja-sube { from { transform: rotate(-62deg); } to { transform: rotate(38deg); } }
+@keyframes aguja-sabor { from { transform: rotate(-62deg); } to { transform: rotate(45deg); } }
+@keyframes aguja-baja { from { transform: rotate(10deg); } to { transform: rotate(-12deg); } }
+@keyframes fluye { from { transform: translateX(0); } to { transform: translateX(80px); } }
+.rec-escenario.pausa *, .rec-escenario.pausa { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) { .esc-svg *, .rec-escena, .rec-portada .rec-play-g { animation-duration: .01s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; } }
+
+/* Colores de los dibujos */
+.esc-svg .palabra { font-size: 30px; font-weight: 900; fill: var(--ink); }
+.esc-svg .palabra.acc { fill: var(--acc-ink); }
+.esc-svg .rot { font-size: 17px; font-weight: 800; fill: var(--ink2); }
+.esc-svg .flecha { fill: none; stroke: var(--ink2); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.esc-svg .cz { fill: var(--red); } .esc-svg .zona { fill: #8D96A0; } .esc-svg .zona-ok { fill: #E78A85; }
+.esc-svg .costura { fill: none; stroke: var(--sup); stroke-width: 2.5; stroke-linecap: round; }
+.esc-svg .escalon { fill: var(--acc-soft); stroke: var(--acc); stroke-width: 2.5; }
+.esc-svg .punto-sube { fill: var(--acc); }
+.esc-svg .pan { fill: #D9963F; } .esc-svg .pan-l { fill: none; stroke: #9A5B1E; stroke-width: 3; stroke-linecap: round; }
+.esc-svg .vidrio { fill: var(--bg2); stroke: var(--ink2); stroke-width: 2.5; } .esc-svg .sal { fill: #fff; stroke: var(--rule); }
+.esc-svg .tapa { fill: var(--ink2); } .esc-svg .hoyo { fill: var(--sup); }
+.esc-svg .queso { fill: #F2C14E; stroke: #C99A2E; stroke-width: 2; stroke-linejoin: round; } .esc-svg .queso-h { fill: #C99A2E; }
+.esc-svg .cec { fill: #9B2D3A; } .esc-svg .cec2 { fill: #B8404E; } .esc-svg .cec-p { fill: #E8A0A8; }
+.esc-svg .caldo { fill: #E7B32F; stroke: #B5861A; stroke-width: 2; stroke-linejoin: round; } .esc-svg .caldo-l { fill: none; stroke: #B5861A; stroke-width: 2; }
+.esc-svg .arroz { fill: #FBFAF4; stroke: var(--rule); } .esc-svg .taza { fill: #3E7CB1; }
+.esc-svg .papa { fill: #C49A6C; stroke: #8E6B43; stroke-width: 2; }
+.esc-svg .botella { fill: #3A2318; stroke: var(--ink2); stroke-width: 1.5; } .esc-svg .etiqueta { fill: var(--red); }
+.esc-svg .agua { fill: #9FD3F0; }
+.esc-svg .sombra { fill: var(--rule); } .esc-svg .loza { fill: var(--sup); stroke: var(--ink2); stroke-width: 2.5; } .esc-svg .loza-l { fill: none; stroke: var(--rule); stroke-width: 2; }
+.esc-svg .verd { fill: #4E9A51; } .esc-svg .prot { fill: #E9D8B4; }
+.esc-svg .pastillero { fill: var(--vio-ink); } .esc-svg .pastillero-c { fill: var(--vio-soft); }
+.esc-svg .zap { fill: #3E7CB1; } .esc-svg .zap-s { fill: var(--sup); stroke: var(--ink2); stroke-width: 2; } .esc-svg .zap-l { stroke: #fff; stroke-width: 2.5; stroke-linecap: round; }
+.esc-svg .piel { fill: #E2B48C; } .esc-svg .ropa { fill: var(--acc); } .esc-svg .pierna { stroke: #49505A; stroke-width: 7; stroke-linecap: round; fill: none; }
+.esc-svg .bata { fill: #fff; stroke: var(--ink2); stroke-width: 2; }
+.esc-svg .casa { fill: var(--bg2); stroke: var(--ink2); stroke-width: 3; stroke-linejoin: round; } .esc-svg .techo { fill: none; stroke: var(--red-ink); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; } .esc-svg .puerta { fill: #B98A5E; }
+.esc-svg .reloj { fill: var(--sup); stroke: var(--ink); stroke-width: 4; } .esc-svg .aguja-r { stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; fill: none; }
+.esc-svg .semana, .esc-svg .sem-cal { fill: var(--acc-soft); stroke: var(--acc); stroke-width: 2.5; }
+.esc-svg .globo { fill: var(--sup); stroke: var(--ink2); stroke-width: 2.5; }
+.esc-svg .aire, .esc-svg .mareo { fill: none; stroke: var(--amb); stroke-width: 5; stroke-linecap: round; }
+.esc-svg .mano { fill: #E2B48C; stroke: #B5865E; stroke-width: 2; }
+.esc-svg .tel { fill: var(--red); } .esc-svg .tel-t { font-size: 20px; font-weight: 900; fill: #fff; }
+.esc-svg .tarjeta { fill: var(--bg); stroke: var(--rule); stroke-width: 2.5; }
+.esc-svg .maceta { fill: #C2703D; } .esc-svg .hoja { fill: #4E9A51; }
+.esc-svg .bolsa { fill: #B98A5E; } .esc-svg .asa { fill: none; stroke: #7A5634; stroke-width: 4; }
+.esc-svg .panuelo { fill: #fff; stroke: var(--ink2); stroke-width: 2.5; }
+.esc-svg .preg-c { fill: var(--amb); } .esc-svg .preg-t { font-size: 18px; font-weight: 900; fill: #fff; }
+.esc-svg .check-c { fill: var(--acc); } .esc-svg .check-l { fill: none; stroke: #fff; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+.esc-svg .arteria { fill: var(--red-soft); } .esc-svg .arteria-in { fill: #F2B8B5; } .esc-svg .globulo { fill: var(--red); }
+.esc-svg .placa-c { fill: none; stroke: var(--amb); stroke-width: 0; }
+.esc-svg .frasco { fill: var(--bg2); stroke: var(--ink2); stroke-width: 3; } .esc-svg .frasco-t { fill: var(--ink2); } .esc-svg .frasco-r { font-size: 14px; font-weight: 900; fill: var(--sup); }
+.esc-svg .z-v, .esc-svg .z-a, .esc-svg .z-r { fill: none; stroke-width: 12; } .esc-svg .z-v { stroke: var(--acc); } .esc-svg .z-a { stroke: var(--amb); } .esc-svg .z-r { stroke: var(--red); }
+.esc-svg .aguja { stroke: var(--ink); stroke-width: 5; stroke-linecap: round; } .esc-svg .eje { fill: var(--ink); }
+.esc-svg .curva { fill: none; stroke: var(--acc); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; } .esc-svg .curva.amb { stroke: var(--amb); }
+.esc-svg .mesa { fill: #B98A5E; }
+.esc-svg .pez { fill: #6FA8DC; } .esc-svg .ojo { fill: var(--ink); } .esc-svg .poroto { fill: #8B4A2B; }
+.esc-svg .pollo { fill: #E3B27A; stroke: #A9773F; stroke-width: 2; }
+.esc-svg .caja { fill: #fff; stroke: var(--ink2); stroke-width: 2; } .esc-svg .caja-t { fill: #3E7CB1; } .esc-svg .caja-e { fill: #3E7CB1; }
+.esc-svg .huevo { fill: #FFF8EC; stroke: #C9B79C; stroke-width: 2.5; }
+.esc-svg .dulce { fill: #E86A92; } .esc-svg .dulce-l { fill: #F2A7BF; }
+.esc-svg .tacha { stroke: var(--red); stroke-width: 6; stroke-linecap: round; }
+.esc-svg .foto { fill: var(--sup); stroke: var(--ink2); stroke-width: 2.5; } .esc-svg .foto-p { fill: var(--acc); }
+.esc-svg .esteto { fill: none; stroke: var(--ink2); stroke-width: 4; stroke-linecap: round; } .esc-svg .esteto-c { fill: var(--ink2); }
+.esc-svg .pt.verde { fill: var(--acc); } .esc-svg .pt.amarillo { fill: var(--amb); } .esc-svg .pt.rojo { fill: var(--red); }
+.esc-svg .pt-peso { fill: var(--sup); stroke: var(--azu-ink); stroke-width: 3.5; }
+.esc-svg .balanza { fill: var(--bg2); stroke: var(--ink2); stroke-width: 3; } .esc-svg .dial { fill: var(--sup); stroke: var(--ink2); stroke-width: 2; }
+.esc-svg .gota { fill: #9FD3F0; stroke: #3E7CB1; stroke-width: 2; }
+.esc-svg .manzana { fill: #D63B3B; } .esc-svg .tallo { fill: none; stroke: #6B4423; stroke-width: 3; stroke-linecap: round; }
+.esc-svg .lechuga, .rec-op .lechuga { fill: #7DBF5A; } .esc-svg .lechuga-c, .rec-op .lechuga-c { fill: #B7E08E; }
+.rec-redondo { flex: none; }
+.rec-ops { min-height: 0; }
+.rec-op svg { max-height: 70px; }
+.rec-resp { font-size: 16px; line-height: 1.25; }
+.rec-sub:empty { display: none; }

@@ -14,13 +14,16 @@ export const TIPOS = {
   pulso: { nombre: 'Pulso', icono: 'heart', unidad: 'por minuto', campos: [['Latidos por minuto', 20, 250]] },
   azucar: { nombre: 'Azúcar', icono: 'drop', unidad: 'mg/dL', campos: [['Número del aparato', 20, 600]] },
   oxigeno: { nombre: 'Oxígeno', icono: 'o2', unidad: '%', campos: [['Porcentaje', 50, 100]] },
+  // Peso: sin colores ni rangos (nadie los ha indicado). Se mira la tendencia de la semana.
+  peso: { nombre: 'Peso', icono: 'balanza', unidad: 'kg', decimal: true, campos: [['Kilos', 30, 200]] },
 };
-export const ORDEN_TIPOS = ['presion', 'pulso', 'azucar', 'oxigeno'];
+export const ORDEN_TIPOS = ['presion', 'pulso', 'azucar', 'oxigeno', 'peso'];
 
 // Rutina de mediciones de la familia. Las horas se cambian en Ajustes; aquí solo va qué se mide y en qué contexto.
 // Cada medición cumple a lo más una tarea (ver tareaDe), así una misma lectura nunca completa dos.
 export const TAREAS = {
   'glu-ayunas': { tipo: 'azucar', momento: 'ayunas', nombre: 'Azúcar en ayunas' },
+  'peso-manana': { tipo: 'peso', nombre: 'Peso en la mañana' },
   'pre-manana': { tipo: 'presion', nombre: 'Presión de la mañana' },
   'glu-almuerzo': { tipo: 'azucar', momento: 'despues', nombre: 'Azúcar después de almorzar' },
   'pre-noche': { tipo: 'presion', nombre: 'Presión de la noche' },
@@ -32,7 +35,7 @@ export function rutinaDe(c) {
   const h = c.rutinaHoras || {}, alm = (c.horasComida || {}).almuerzo || '';
   let tarde = '';
   if (HORA_OK.test(alm)) { const m = Math.min(23 * 60 + 59, Number(alm.slice(0, 2)) * 60 + Number(alm.slice(3, 5)) + 120); tarde = dos(Math.floor(m / 60)) + ':' + dos(m % 60); }
-  return [['glu-ayunas', h.ayunas], ['pre-manana', h.manana], ['glu-almuerzo', tarde], ['pre-noche', h.noche]]
+  return [['glu-ayunas', h.ayunas], ['peso-manana', h.peso || h.ayunas], ['pre-manana', h.manana], ['glu-almuerzo', tarde], ['pre-noche', h.noche]]
     .filter((x) => HORA_OK.test(x[1] || '')).map((x) => ({ id: x[0], hora: x[1] }));
 }
 // A qué tarea corresponde una medición. Las nuevas lo traen anotado; las antiguas se deducen del contexto.
@@ -40,6 +43,7 @@ export function tareaDe(m) {
   if (typeof m.tarea === 'string') return m.tarea;
   if (m.tipo === 'azucar') return m.momento === 'despues' ? 'glu-almuerzo' : m.momento === 'antes' ? '' : 'glu-ayunas';
   if (m.tipo === 'presion') return new Date(m.ts).getHours() < 15 ? 'pre-manana' : 'pre-noche';
+  if (m.tipo === 'peso') return new Date(m.ts).getHours() < 12 ? 'peso-manana' : '';
   return '';
 }
 export const duracion = (min) => (min >= 60 ? `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ''}` : `${min} min`);
@@ -69,7 +73,9 @@ export function colacionesDe(c) {
     porciones: ajustes[k + 'Porcion'] || '' })).filter((x) => x.hora);
 }
 
-export const ETIQUETA = { verde: 'Normal', amarillo: 'Revisar', rojo: 'Fuera de lo normal' };
+export const ETIQUETA = { verde: 'Normal', amarillo: 'Revisar', rojo: 'Fuera de lo normal', neutro: 'Anotado' };
+// Solo ámbar y rojo cuentan como aviso (el peso es "neutro").
+export const esAviso = (c) => c === 'amarillo' || c === 'rojo';
 
 // Guía general (no editable). Siempre valen primero las indicaciones del médico y la nutricionista.
 export const GUIA = {
@@ -100,7 +106,7 @@ export function configInicial() {
       oxigeno: { min: 95, rojoBajo: 92 },
     },
     medirHoras: ['08:30', '19:30'],   // formato anterior: se conserva para leer los días ya guardados
-    rutinaHoras: { ayunas: '07:00', manana: '11:00', noche: '20:00' },
+    rutinaHoras: { ayunas: '07:00', peso: '07:00', manana: '11:00', noche: '20:00' },
     horasComida: { desayuno: '09:00', almuerzo: '13:30', once: '17:30', cena: '20:30' },
     menu: MENU_EJEMPLO,
     menuEsEjemplo: true,
@@ -145,6 +151,7 @@ const num = (x) => (x === null || x === undefined || x === '' || isNaN(Number(x)
 // Devuelve 'verde' | 'amarillo' | 'rojo' según los rangos configurados.
 // En azúcar, "en ayunas" y "antes de comer" usan el rango de ayunas; "después de comer" usa su propio límite.
 export function clasificar(m, rangos) {
+  if (m.tipo === 'peso') return 'neutro';
   const r = (rangos && rangos[m.tipo]) || {};
   const v = Number(m.valor), v2 = Number(m.valor2);
   if (m.tipo === 'presion') {
@@ -170,6 +177,7 @@ export function clasificar(m, rangos) {
 export const azucarBaja = (m, rangos) => m.tipo === 'azucar' && num(rangos.azucar.rojoBajo) !== null && Number(m.valor) < num(rangos.azucar.rojoBajo);
 
 export function mensaje(m, rangos) {
+  if (m.tipo === 'peso') return ['Anotado', 'De un día a otro el peso cambia sobre todo por agua. Lo que importa es cómo va la semana.'];
   const c = clasificar(m, rangos);
   if (azucarBaja(m, rangos)) return ['Azúcar baja', 'Denle medio vaso de jugo. Vuelvan a medir en 15 minutos y avisen.'];
   if (c === 'rojo') return ['Fuera de lo normal', 'Vuelvan a medir en 5 minutos. Si sigue igual, avisen al médico.'];
@@ -180,6 +188,7 @@ export function mensaje(m, rangos) {
 export function valorTexto(m) {
   if (m.tipo === 'presion') return `${m.valor}/${m.valor2}`;
   if (m.tipo === 'oxigeno') return `${m.valor}%`;
+  if (m.tipo === 'peso') return `${String(m.valor).replace('.', ',')} kg`;
   return String(m.valor);
 }
 

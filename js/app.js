@@ -13,6 +13,7 @@ import * as agenda from './vistas/agenda.js';
 import * as emergencia from './vistas/emergencia.js';
 import * as ajustes from './vistas/ajustes.js';
 import * as resumen from './vistas/resumen.js';
+import * as recuperacion from './vistas/recuperacion.js';
 import { resumenRemedios, asegurarPlanHoy } from './plan.js';
 
 const params = new URLSearchParams(location.search);
@@ -31,6 +32,7 @@ const VISTAS = {
   ajustes: { render: ajustes.render, titulo: ajustes.titulo, pestana: 'ajustes' },
   emergencia: { render: emergencia.render, titulo: () => 'Emergencia', pestana: '' },
   resumen: { render: resumen.render, titulo: resumen.titulo, pestana: 'resumen' },
+  recuperacion: { render: recuperacion.render, titulo: recuperacion.titulo, pestana: 'hoy' },
 };
 const PESTANAS = [['hoy', 'home', 'Hoy'], ['medir', 'pulse', 'Medir'], ['comidas', 'food', 'Comidas'], ['agenda', 'cal', 'Agenda']];
 

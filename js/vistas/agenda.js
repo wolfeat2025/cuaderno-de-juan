@@ -3,6 +3,7 @@ import { estado, acciones, pintar, ir, aviso, paraGuardar, esJuan } from '../nuc
 import * as db from '../db.js';
 import { esc, ico, val, claveFecha, deClave, sumarDias, lunesDe, fechaMedia, fechaLarga, DIAS, MESES, mayus } from '../util.js';
 import { cuidados, tituloCuidados } from './cuidados.js';
+import { tarjetaRecuperacion } from './recuperacion.js';
 import { ACOMPANANTES } from '../datos.js';
 
 function turnos() {
@@ -64,7 +65,7 @@ function formCita(id) {
 export function render(args) {
   if (args[0] === 'cuidados') return cuidados(args[1]);
   if (args[0] === 'cita') return formCita(args[1]);
-  return `<div class="envoltura">${turnos()}<a class="btn sec" href="#agenda/cuidados">${ico('info')}Actividades y cuidados</a>${listaCitas()}</div>`;
+  return `<div class="envoltura">${turnos()}<a class="btn sec" href="#agenda/cuidados">${ico('info')}Actividades y cuidados</a>${listaCitas()}<p class="rotulo">${ico('info')}Para entender lo que está pasando</p>${tarjetaRecuperacion(true)}</div>`;
 }
 export const titulo = (args) => (args[0] === 'cuidados' ? tituloCuidados : args[0] === 'cita' ? (args[1] === 'nueva' ? 'Nueva fecha' : 'Fecha') : 'Agenda');
 

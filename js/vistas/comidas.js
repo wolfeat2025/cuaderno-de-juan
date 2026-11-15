@@ -4,11 +4,67 @@ import * as db from '../db.js';
 import { esc, ico, val, porId, claveFecha, deClave, hhmm, fechaLarga, DIAS, DIAS_K, mayus } from '../util.js';
 import { GUIA, COLACIONES, colacionesDe } from '../datos.js';
 import { itemsDelDia, sinSubir } from '../plan.js';
-import { SECCIONES_GUIA, GUIA_COMIDAS, PARTES_PLATO, platoGrande, dibujoPlatoCorazon, PASOS_COMIDA_CORAZON, FUENTES_COMIDA_CORAZON } from '../guias.js';
+import { SECCIONES_GUIA, GUIA_COMIDAS, PARTES_PLATO, platoGrande, dibujoPlatoCorazon, EXPLICA_COMIDA } from '../guias.js';
 import { consultarComida } from '../alimentos.js';
 import { resultadoConsulta } from './consulta-comida.js';
 import { infografia, detenerRecorridos } from '../visuales.js';
 import * as nutricion from './nutricion.js';
+import { cargarCatalogo, catalogoListo, interpretar, alimentoPorId, cgDe, nivelComida, nivelDia, NIVEL_TXT } from '../glucemica.js';
+import { clasificar } from '../datos.js';
+
+// ---- Carga glucémica: el catálogo se carga una vez; al llegar, se repinta. ----
+cargarCatalogo().then(() => { try { pintar(); } catch (e) { /* aún no hay pantalla */ } });
+const FACTOR = { todo: 1, parte: 0.5, nada: 0 };
+const r1 = (n) => Math.round(n * 10) / 10;
+// Alimentos reconocidos en un texto, conservando la porción ya elegida si el alimento sigue ahí.
+function calcularItems(texto, previos) {
+  const usados = {};
+  return interpretar(texto).map((x) => {
+    if (!x.a) return { t: x.texto, id: '', pi: 0 };
+    const prev = (previos || []).find((p) => p.id === x.a.id && !usados[p.id]);
+    usados[x.a.id] = 1;
+    return { t: x.texto, id: x.a.id, pi: prev ? Math.min(prev.pi || 0, x.a.p.length - 1) : 0 };
+  });
+}
+function totalCG(items, comio) {
+  return (items || []).reduce((s, it) => { const a = it.id && alimentoPorId(it.id); return a ? s + cgDe(a, a.p[it.pi || 0][1]) : s; }, 0) * (FACTOR[comio] === undefined ? 1 : FACTOR[comio]);
+}
+// Carga de un registro guardado: usa lo elegido al anotar; los antiguos se interpretan con la porción habitual.
+function cgRegistro(reg) {
+  if (!catalogoListo() || !reg || reg.comio === 'nada') return null;
+  if (typeof reg.cg === 'number') return reg.cg;
+  const items = calcularItems(reg.nota || reg.previsto || '', []);
+  if (!items.some((i) => i.id)) return null;
+  return totalCG(items, reg.comio);
+}
+const medidorCG = (cg, chico) => { const n = nivelComida(cg); return `<span class="cg-chip ${n}${chico ? ' chico' : ''}"><span class="cg-barras"><i></i><i></i><i></i></span>${NIVEL_TXT[n]} para el azúcar</span>`; };
+function detectadosHtml(b, it) {
+  if (!catalogoListo() || !String(b.nota || '').trim()) return '';
+  const items = b.items || [];
+  if (!items.length) return '';
+  const filas = items.map((x, n) => {
+    const a = x.id && alimentoPorId(x.id);
+    if (!a) return `<p class="det-no">${ico('info')}"${esc(x.t)}": no está en la lista todavía</p>`;
+    return `<div class="det-fila"><p class="tit">${esc(a.n)}</p><div class="opciones envuelve">${a.p.map(([nom], pi) => `<button type="button" class="opcion chica${pi === (x.pi || 0) ? ' sel' : ''}" data-a="elegirPorcion" data-id="${it.id}" data-k="${it.k}" data-n="${n}" data-v="${pi}">${esc(nom)}</button>`).join('')}</div></div>`;
+  }).join('');
+  const reconocidos = items.some((x) => x.id);
+  return `<div class="detectados">${filas}${reconocidos ? `<div class="det-total">${medidorCG(totalCG(items, b.comio || 'todo'))}</div>` : ''}</div>`;
+}
+// Resumen del día: una barra que se llena con cada comida y el azúcar medido después del almuerzo.
+function resumenAzucarDia(hoy, comidas) {
+  if (!catalogoListo()) return '';
+  const tramos = comidas.map((it) => { const reg = estado.tomas[it.id], cg = cgRegistro(reg); return cg === null ? null : { it, cg }; }).filter(Boolean);
+  if (!tramos.length) return '';
+  const total = tramos.reduce((s, x) => s + x.cg, 0), MAX = 160, n = nivelDia(total);
+  const barra = tramos.map((x) => `<span class="tramo-cg ${nivelComida(x.cg)}" style="width:${Math.max(3, (x.cg / MAX) * 100).toFixed(1)}%" title="${esc(x.it.nombre)}"><b>${esc(x.it.nombre.slice(0, 3))}</b></span>`).join('');
+  const glu = estado.mediciones.find((m) => m.fecha === hoy && m.tipo === 'azucar' && m.tarea === 'glu-almuerzo');
+  const alm = tramos.find((x) => x.it.k === 'almuerzo');
+  return `<section class="panel azucar-dia"><div class="titulo-fila"><p class="rotulo">Las comidas de hoy y el azúcar</p><span class="cg-chip ${n}"><span class="cg-barras"><i></i><i></i><i></i></span>${NIVEL_TXT[n]}</span></div>
+    <div class="barra-cg">${barra}<span class="marca-cg" style="left:${(80 / MAX * 100).toFixed(1)}%"></span><span class="marca-cg" style="left:${(120 / MAX * 100).toFixed(1)}%"></span></div>
+    <div class="ley-cg"><span>Suave</span><span>Media</span><span>Alta</span></div>
+    ${alm && glu ? `<p class="cg-relacion">${ico('soup')}Almuerzo: <b class="${nivelComida(alm.cg)}">${NIVEL_TXT[nivelComida(alm.cg)].toLowerCase()}</b> ${ico('right')} 2 h después: <b class="v ${clasificar(glu, estado.config.rangos)}">${glu.valor}</b></p>` : ''}
+    <p class="nota">Estimación según lo anotado. Sirve para comparar días, no es una medición.</p></section>`;
+}
 
 const COMIO = { todo: 'Comió todo', parte: 'Comió una parte', nada: 'No comió' };
 const HORA_OK = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -36,6 +92,7 @@ function sincronizarBorradoresEnVivo() {
 function editorComida(it, reg, hoy) {
   const b = borradores()[it.id] || { k: it.k, fecha: reg ? reg.fecha : hoy, modo: reg ? 'editar' : 'otra', nota: (reg && reg.nota) || '', comio: (reg && reg.comio) || '', cuando: reg ? 'temprano' : '', hora: reg ? hhmm(new Date(reg.ts)) : '' };
   borradores()[it.id] = b;
+  if (!b.items && b.nota && catalogoListo()) b.items = calcularItems(b.nota, reg && reg.items);
   const fechaTxt = `${b.fecha === hoy ? 'Hoy · ' : ''}${fechaLarga(deClave(b.fecha)).toLowerCase()}`;
   const esOtra = b.modo === 'otra';
   return `<div class="editor-comida" data-k="ed-${it.id}">
@@ -44,9 +101,8 @@ function editorComida(it, reg, hoy) {
     <div class="campo">
       <label for="otra-${it.k}">${esJuan() ? '¿Qué comiste?' : esOtra ? (PREGUNTA_COMIDA[it.k] || '¿Qué comió en la colación?') : '¿Qué comió? (vacío si fue el menú)'}</label>
       <input class="texto" id="otra-${it.k}" value="${esc(b.nota)}" placeholder="Ej: sopa de pollo con verduras" maxlength="100" autocomplete="off" data-c="actualizarBorradorComida" data-i="actualizarBorradorComida" data-id="${it.id}" data-k="${it.k}">
-      <button type="button" class="btn quieto" data-a="consultarAlimentos" data-id="${it.id}" data-k="${it.k}">${ico('info')}Consultar alimentos</button>
     </div>
-    ${resultadoConsulta(b, it.porciones)}
+    <div id="det-${it.k}">${detectadosHtml(b, it)}</div>
     <div class="grupo">
       <p class="rotulo">¿Cuánto comió?</p>
       <div class="opciones">${[['todo', 'Todo'], ['parte', 'Una parte'], ['nada', 'Nada']].map(([v, n]) => `<button type="button" class="opcion${b.comio === v ? ' sel' : ''}" data-a="elegirCantComida" data-id="${it.id}" data-k="${it.k}" data-v="${v}" aria-pressed="${b.comio === v ? 'true' : 'false'}">${n}</button>`).join('')}</div>
@@ -79,17 +135,16 @@ function tarjetaComida(it, ahoraHM, hoy) {
   if (b) {
     registro = editorComida(it, reg, hoy);
   } else if (reg) {
-    const hReal = hhmm(new Date(reg.ts)), hIngreso = reg.creado ? hhmm(new Date(reg.creado)) : hReal;
+    const hReal = hhmm(new Date(reg.ts));
     const traza = [
       `Comió a las ${hReal}`,
-      reg.despues && hIngreso !== hReal ? `anotado a las ${hIngreso}` : '',
       reg.corregido ? `corregido${reg.editadoPor ? ' por ' + reg.editadoPor : ''}` : '',
       `anotó ${reg.quien}`,
       sinSubir(reg) ? 'sin subir' : '',
     ].filter(Boolean).map(esc).join(' · ');
     registro = `<div class="registro hecho"><span class="ic hecho">${ico('check')}</span><div class="txt">
         <p class="firma">${COMIO[reg.comio] || 'Anotado'}${reg.otra ? ' · otra comida' : ''}${reg.nota ? ': ' + esc(reg.nota) : ''}</p>
-        <p class="sub">${traza}</p></div>
+        <p class="sub">${traza}</p>${cgRegistro(reg) !== null ? medidorCG(cgRegistro(reg), true) : ''}</div>
       <div class="acciones-reg">
         <button type="button" class="btn quieto auto" data-a="editarComida" data-id="${it.id}" data-k="${it.k}">${ico('edit')}Corregir</button>
         <button type="button" class="btn quieto auto" data-a="quitarComida" data-id="${it.id}">${ico('undo')}Cambiar</button>
@@ -113,7 +168,7 @@ function tarjetaComida(it, ahoraHM, hoy) {
 
 function bloqueCuidadoComidas() {
   const u = estado.ui, abierto = !!u.porQueComida;
-  if (esJuan()) return `<div class="panel cuidado"><div class="comida-hero">${dibujoPlatoCorazon()}<h2 class="h3">Comer bien cuida tu corazón</h2></div><button class="btn sec" data-a="alternarPorQueComida" aria-expanded="${abierto}">${ico('info')}${abierto?'Cerrar explicación':'¿Por qué importa?'}</button>${abierto?infografia('comida'):''}</div>`;
+  if (esJuan()) return `<div class="panel cuidado"><div class="comida-hero">${dibujoPlatoCorazon()}<h2 class="h3">Comer bien cuida tu corazón</h2></div><button class="btn sec" data-a="alternarPorQueComida" aria-expanded="${abierto}">${ico('info')}${abierto?'Cerrar explicación':'¿Por qué importa?'}</button>${abierto?`<div class="comida-explica ce-tarjetas" data-k="exp-j-${u.comidaAnimVez || 0}">${EXPLICA_COMIDA.map(([t, d, svg], i) => `<div class="ce-tarjeta ce-${i + 1}">${svg}<p class="tit">${esc(t)}</p><p class="sub">${esc(d)}</p></div>`).join('')}</div>`:''}</div>`;
   return `<div class="panel cuidado comida-encabezado" data-k="comida-cab-${u.comidaAnimVez || 0}">
     <div class="comida-hero">
       ${dibujoPlatoCorazon()}
@@ -125,17 +180,8 @@ function bloqueCuidadoComidas() {
       <button type="button" class="btn sec auto" data-a="alternarPorQueComida" aria-expanded="${abierto ? 'true' : 'false'}">${ico(abierto ? 'down' : 'info')}${abierto ? 'Ocultar explicación' : '¿Por qué importa?'}</button>
       ${abierto ? `<button type="button" class="btn quieto auto" data-a="repetirAnimComida">${ico('undo')}Ver de nuevo</button>` : ''}
     </div>
-    ${abierto ? `<div class="comida-explica" data-k="exp-${u.comidaAnimVez || 0}">
-      <div class="pasos-visuales">
-        ${PASOS_COMIDA_CORAZON.map(([t, d], i) => `<div class="paso-visual pv-${i + 1}"><span class="num-paso">${i + 1}</span><div><p class="tit">${esc(t)}</p><p class="sub">${esc(d)}</p></div></div>`).join('')}
-      </div>
-      <p class="nota aviso-info">${ico('info')}<span><b>Importante:</b> Una comida saludable no limpia las arterias de inmediato ni repara por sí sola una lesión del corazón, y el azúcar no se convierte directamente en grasa dentro del corazón. Es un hábito diario que acompaña a los remedios y controles médicos.</span></p>
-      <div class="fuentes-caja">
-        <p class="rotulo">Fuentes médicas generales</p>
-        <ul class="fuentes-lista">
-          ${FUENTES_COMIDA_CORAZON.map((f) => `<li><a class="enlace" href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.org)} — ${esc(f.tema)}</a><span class="sub">${esc(f.consulta)} · Material educativo general (no equivale a revisión clínica individual).</span></li>`).join('')}
-        </ul>
-      </div>
+    ${abierto ? `<div class="comida-explica ce-tarjetas" data-k="exp-${u.comidaAnimVez || 0}">
+      ${EXPLICA_COMIDA.map(([t, d, svg], i) => `<div class="ce-tarjeta ce-${i + 1}">${svg}<p class="tit">${esc(t)}</p><p class="sub">${esc(d)}</p></div>`).join('')}
     </div>` : ''}
   </div>`;
 }
@@ -146,14 +192,17 @@ function principal() {
   if (esJuan()) return `<div class="envoltura juan-comidas">${bloqueCuidadoComidas()}<h2 class="h2">Mis comidas de hoy</h2>${comidas.map(it=>{
     const reg=estado.tomas[it.id];
     return `<section class="panel"><div class="titulo-fila"><h3 class="h3">${ico(it.icono)}${esc(it.nombre)}</h3><span class="chip neutro">${it.opcional?'Opcional':it.hora}</span></div>${reg?`<p class="tit">${esc(reg.nota||reg.previsto||it.texto)}</p><p class="firma">${COMIO[reg.comio]||'Anotado'} · ${hhmm(new Date(reg.ts))}</p><p class="nota">Anotó ${esc(reg.quien)}${sinSubir(reg)?' · sin subir':''}</p>`:'<p class="sub">Todavía no está anotado.</p>'}<details class="comida-menu"><summary>Ver la pauta de esta comida</summary><p class="sub">${esc(it.texto)}</p>${estado.config.menuEsEjemplo?'<p class="nota">Menú de ejemplo.</p>':''}<p class="nota">${esc(it.porciones||'Porción pendiente de indicar.')}</p></details></section>`;
-  }).join('')}<a class="btn sec" href="#comidas/guia">${ico('food')}Ideas para cuidarme</a><p class="nota">La familia anota y corrige tus comidas desde sus perfiles.</p></div>`;
+  }).join('')}<a class="btn sec" href="#recuperacion/3">${ico('play')}La comida trabaja contigo</a><a class="btn sec" href="#recuperacion/6">${ico('play')}Tu peso</a><a class="btn quieto" href="#comidas/guia">${ico('food')}Ideas para cuidarme</a><p class="nota">La familia anota y corrige tus comidas desde sus perfiles.</p></div>`;
   const faltan = estado.compras.filter((i) => !i.comprado).length;
   const op = (ruta, icono, t, s) => `<a class="opcion-aj" href="#${ruta}"><span class="ic comida">${ico(icono)}</span><span class="info"><span class="tit">${t}</span><span class="sub">${s}</span></span>${ico('right')}</a>`;
   return `<div class="envoltura">
     ${bloqueCuidadoComidas()}
     <div class="titulo-fila"><p class="h2">Comidas de hoy</p><span class="chip neutro">${mayus(DIAS[estado.ahora.getDay()])}</span></div>
+    ${resumenAzucarDia(hoy, comidas)}
     ${comidas.length ? comidas.map((it) => tarjetaComida(it, ahoraHM, hoy)).join('') : '<p class="vacio-txt">No hay menú anotado para hoy.</p>'}
     <div class="lista-aj">
+      ${op('recuperacion/3', 'play', 'La comida trabaja contigo', 'Capítulo 3 · con voz')}
+      ${op('recuperacion/6', 'play', 'Tu peso', 'Capítulo 6 · con voz')}
       ${op('comidas/consulta', 'info', 'Revisar una comida', 'Ingredientes, cantidades y pauta')}
       ${esAdmin() ? op('comidas/colaciones', 'clock', 'Organizar colaciones', 'Opcionales, horarios e indicaciones') : ''}
       ${op('comidas/compras', 'cart', 'Lista de compras', faltan ? `${faltan} por comprar` : 'Nada pendiente')}
@@ -233,6 +282,16 @@ acciones.actualizarBorradorComida = (d) => {
   const anterior = borradores()[d.id], habiaConsulta = anterior && anterior.consulta;
   const b = leerBorrador(d.id, d.k);
   if (habiaConsulta && b && !b.consulta) pintar();
+  // Reconoce los alimentos mientras se escribe, sin repintar toda la pantalla (no se pierde el teclado).
+  if (b && catalogoListo()) {
+    b.items = calcularItems(b.nota || '', b.items);
+    const caja = porId('det-' + d.k);
+    if (caja) caja.innerHTML = detectadosHtml(b, { id: d.id, k: d.k });
+  }
+};
+acciones.elegirPorcion = (d) => {
+  const b = leerBorrador(d.id, d.k); if (!b || !b.items || !b.items[d.n]) return;
+  b.items[d.n].pi = Number(d.v); pintar();
 };
 acciones.consultarAlimentos = (d) => {
   const b = leerBorrador(d.id, d.k); if (!b) return;
@@ -281,6 +340,12 @@ acciones.guardarComidaForm = (d) => {
     creado: previo ? (previo.creado || previo.ts) : ahora,
   };
   if (nota) { reg.nota = nota; reg.otra = true; }
+  if (nota && catalogoListo()) {
+    const items = calcularItems(nota, b.items);
+    reg.items = items.filter((x) => x.id).map((x) => ({ id: x.id, pi: x.pi || 0, g: alimentoPorId(x.id).p[x.pi || 0][1] }));
+    reg.sinCalcular = items.filter((x) => !x.id).map((x) => x.t);
+    if (reg.items.length) reg.cg = r1(totalCG(items, b.comio));
+  }
   if (!previo && b.cuando === 'temprano') reg.despues = true;
   if (previo) {
     if (previo.despues) reg.despues = true;

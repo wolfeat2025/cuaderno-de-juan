@@ -26,21 +26,6 @@ const ESTADO_META = {
   consultar: { txt: 'Falta consultar', cls: 'neutro', ic: 'clock' },
 };
 
-const FUENTES_ACTIVIDAD = [
-  {
-    org: 'American Heart Association (AHA)',
-    tema: 'Plan personal de actividad física y progresión con rehabilitación cardíaca',
-    url: 'https://www.heart.org/en/health-topics/cardiac-rehab/getting-physically-active/develop-a-physical-activity-plan-for-you',
-    consulta: 'Consultado el 14 de noviembre de 2026',
-  },
-  {
-    org: 'NHS (Reino Unido)',
-    tema: 'Recuperación tras un infarto y retorno gradual a las actividades cotidianas',
-    url: 'https://www.nhs.uk/conditions/heart-attack/',
-    consulta: 'Consultado el 14 de noviembre de 2026',
-  },
-];
-
 const lineas = (texto) => String(texto || '').split('\n').map((x) => x.trim()).filter(Boolean);
 const listaHtml = (texto) => lineas(texto).map((x) => `<li>${esc(x)}</li>`).join('');
 
@@ -94,51 +79,19 @@ export function resumenCuidadosPortada() {
 
 function tarjetaActividadPersonal(it) {
   const meta = ESTADO_META[it.estado] || ESTADO_META.consultar;
-  return `<div class="actividad-card" data-k="act-${it.id}">
-    <div class="titulo-fila">
-      <p class="tit">${esc(it.actividad)}</p>
-      <span class="chip ${meta.cls}">${ico(meta.ic)}${meta.txt}</span>
-    </div>
-    ${it.motivo ? `<p class="sub grande"><b>Motivo:</b> ${esc(it.motivo)}</p>` : ''}
-    ${it.limite ? `<p class="sub"><b>Pauta / volver de a poco:</b> ${esc(it.limite)}</p>` : ''}
-    <div class="actividad-meta">
-      ${it.fuente ? `<span><b>Fuente:</b> ${esc(it.fuente)}</span>` : '<span><b>Fuente:</b> pendiente de indicar</span>'}
-      ${it.fecha ? `<span><b>Fecha:</b> ${esc(it.fecha)}</span>` : ''}
-      ${it.revision ? `<span class="chip amb">${ico('clock')}Revisión pendiente: ${esc(it.revision)}</span>` : ''}
-    </div>
+  return `<div class="act-fila ${meta.cls}" data-k="act-${it.id}">
+    <span class="act-ic">${ico(meta.ic)}</span>
+    <div><p class="tit">${esc(it.actividad)}</p>${it.motivo ? `<p class="sub">${esc(it.motivo)}</p>` : ''}${it.limite ? `<p class="sub act-limite">${ico('up')}${esc(it.limite)}</p>` : ''}</div>
   </div>`;
 }
 
-function svgExplicacionActividad() {
-  return `<svg class="dibujo-corazon" viewBox="0 0 320 84" role="img" aria-label="Ilustración educativa: diferencia entre retomar caminatas graduales y esfuerzos bruscos o al calor">
-    <rect class="dc-caja dc-dest" x="6" y="8" width="146" height="68" rx="14"/>
-    <text class="dc-t1" x="79" y="36" text-anchor="middle">Retorno gradual</text>
-    <text class="dc-t2" x="79" y="56" text-anchor="middle">Guiado por el equipo</text>
-    <rect class="dc-caja" x="168" y="8" width="146" height="68" rx="14"/>
-    <text class="dc-t1" x="241" y="36" text-anchor="middle">Esfuerzo o calor</text>
-    <text class="dc-t2" x="241" y="56" text-anchor="middle">Requiere consultar</text>
-  </svg>`;
-}
-
-function bloqueEducacionGeneral() {
-  return `<section class="panel" aria-label="Explicación general sobre actividad y recuperación">
-    <div class="cabeza"><span class="ic">${ico('info')}</span><div>
-      <p class="rotulo">Información educativa general · No es tu pauta individual</p>
-      <h2 class="h3">¿Por qué algunas actividades se retoman de a poco y otras requieren revisión?</h2>
-    </div></div>
-    ${svgExplicacionActividad()}
-    <p class="sub grande">Después de un problema cardíaco, el objetivo no es quedarse en reposo indefinido, sino recuperar el movimiento de manera segura y progresiva junto con el equipo tratante.</p>
-    <ul class="pasos">
-      <li><b>Por qué volver gradualmente:</b> caminar suave y aumentar el tiempo de a poco permite que el corazón y la circulación se adapten sin saltos bruscos de exigencia. Los programas de rehabilitación cardíaca ayudan a planificar ese avance según los exámenes de cada persona.</li>
-      <li><b>Por qué ciertos esfuerzos requieren revisión médica previa:</b> agacharse de forma repetida, arrancar malezas haciendo fuerza con los brazos, levantar peso o trabajar al sol y con calor suben la presión arterial y la frecuencia cardíaca mucho más rápido que una caminata tranquila.</li>
-      <li><b>Falta de información no es permiso ni prohibición:</b> si una actividad todavía no tiene indicación del médico en este cuaderno, queda en "Lo que falta consultar" para preguntarla en el próximo control.</li>
-    </ul>
-    <div class="fuentes-caja">
-      <p class="rotulo">Fuentes clínicas de esta explicación general</p>
-      <ul class="fuentes-lista">
-        ${FUENTES_ACTIVIDAD.map((f) => `<li><a class="enlace" href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.org)} — ${esc(f.tema)}</a><span class="sub">${esc(f.consulta)} · Revisión editorial de la fuente; no equivale a indicación clínica personal.</span></li>`).join('')}
-      </ul>
-    </div>
+// Visual sin cifras: la recuperación avanza por etapas y cada paso se conversa con el equipo.
+const caminante = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13" cy="4" r="2" fill="currentColor"/><path d="M11 21l2-6 3 3v3M13 15l-1-5-3 3-2 1M12 10l3 2 3 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function deAPoco() {
+  const pasos = [[ico('home'), 'En casa', 'Moverse cada hora'], [caminante, 'Un poco más', 'Cada semana'], [ico('heart'), 'Lo de siempre', 'Con el médico']];
+  return `<section class="panel de-a-poco" aria-label="Volver de a poco">
+    <p class="rotulo">Volver de a poco</p>
+    <div class="dap-pasos">${pasos.map(([ic, t, s], i) => `${i ? '<span class="dap-linea"></span>' : ''}<div class="dap-paso dap-${i + 1}"><span class="dap-ic">${ic}</span><p class="tit">${t}</p><p class="sub">${s}</p></div>`).join('')}</div>
   </section>`;
 }
 
@@ -193,6 +146,11 @@ function editorCuidados(c) {
         <div class="campo"><label for="ci-rev-${i}">Revisión pendiente (opcional)</label><input class="texto" id="ci-rev-${i}" maxlength="140" value="${esc(it.revision || '')}" placeholder="Ej: Confirmar en próximo control de cardiología"></div>
       </div>`).join('')}
       <button type="button" class="btn sec" data-a="agregarItemCuidado">${ico('plus')}Agregar tarjeta de actividad</button>
+      <details class="comida-menu"><summary>${ico('upload')}Pegar varias de una vez</summary>
+        <p class="sub">Una por línea: <b>estado | actividad | motivo | cómo avanzar</b>. Estado: puede, evitar o preguntar.</p>
+        <textarea class="texto" id="cuidado-pegar" rows="6"></textarea>
+        <button type="button" class="btn sec" data-a="pegarItemsCuidado">${ico('plus')}Agregar estas tarjetas</button>
+      </details>
     </div>
 
     <div class="panel">
@@ -218,7 +176,7 @@ function cuidadosVisualesJuan(c) {
       return `<details class="panel comida-menu" data-k="juan-cuidados-${k}"${k==='evitar' && (grupo.length||texto)?' open':''}><summary>${ico(icon)}${esc(t)}</summary>${grupo.map(tarjetaActividadPersonal).join('')}${texto?`<ul class="lista-cuidado-texto">${listaHtml(texto)}</ul>`:''}${!grupo.length&&!texto?'<p class="sub">Todavía sin indicaciones anotadas.</p>':''}${k==='autorizado'&&c.limites?`<p class="tit">Límites de la pauta</p><ul class="lista-cuidado-texto">${listaHtml(c.limites)}</ul>`:''}</details>`;
     }).join('')}
     ${c.fuente?`<p class="nota">${esc(c.fuente)}${c.fecha?' · '+esc(c.fecha):''}</p>`:''}
-    ${infografia('actividad')}
+    <a class="btn sec" href="#recuperacion/2">${ico('play')}Volver de a poco (capítulo 2)</a>
   </div>`;
 }
 
@@ -231,50 +189,23 @@ export function cuidados(modo) {
   const items = Array.isArray(c.items) ? c.items : [];
   const hayPauta = tienePautaPersonal(c);
   const mapTextoCampo = { autorizado: 'puede', evitar: 'evitar', consultar: 'preguntas' };
-  const volver = `<a class="btn quieto izq" href="#${esJuan() ? 'hoy' : 'agenda'}">${ico('left')}${esJuan() ? 'Volver a Hoy' : 'Volver a Agenda'}</a>`;
+  const NOMBRES = { autorizado: 'Puede hacer', evitar: 'Evitar por ahora', consultar: 'Preguntar al médico' };
+  const grupos = GRUPOS.map(([est, , , iconoGrupo]) => {
+    const deGrupo = items.filter((x) => (x.estado || 'consultar') === est);
+    const extra = lineas(c[mapTextoCampo[est]]).concat(est === 'autorizado' ? lineas(c.limites) : []);
+    if (!deGrupo.length && !extra.length) return '';
+    return `<section class="panel grupo-cuidado g-${est}" aria-label="${NOMBRES[est]}">
+      <h2 class="h3">${ico(iconoGrupo)}${NOMBRES[est]}</h2>
+      ${deGrupo.map(tarjetaActividadPersonal).join('')}
+      ${extra.length ? `<ul class="lista-cuidado-texto">${extra.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+    </section>`;
+  }).join('');
 
   return `<div class="envoltura">
-    ${volver}
-    <div class="panel cuidado">
-      <h2 class="h3">${esJuan() ? 'Tus actividades y cuidados personales' : 'El día a día de Juan, según sus indicaciones'}</h2>
-      <p class="sub">${esJuan()
-        ? 'Aquí ves qué actividades están autorizadas por tu equipo médico, cuáles evitar por ahora y qué dudas llevamos anotadas para el próximo control.'
-        : 'Aquí la familia comparte lo que indicó el equipo de salud sobre esfuerzo, peso, calor, patio y otras actividades.'}</p>
-    </div>
-
-    ${!hayPauta ? `<div class="panel estado-espera">
-      <div class="cabeza"><span class="ic vacio">${ico('clock')}</span><div>
-        <p class="tit">Estamos esperando tus indicaciones</p>
-        <p class="sub grande">Todavía no hay indicaciones personales cargadas. Que un recuadro esté vacío no significa prohibición ni permiso automático: evita suposiciones hasta anotar lo que indique el equipo médico.</p>
-      </div></div>
-    </div>` : ''}
-
-    <div class="cuidados-lista">
-      ${GRUPOS.map(([est, tituloGrupo, clsChip, iconoGrupo, vacioMsg]) => {
-        const deGrupo = items.filter((x) => (x.estado || 'consultar') === est);
-        const campoLegacy = mapTextoCampo[est];
-        const textoLegacy = c[campoLegacy] || '';
-        const textoLimites = est === 'autorizado' && c.limites ? c.limites : '';
-        const tieneAlgo = deGrupo.length || textoLegacy || textoLimites;
-        return `<section class="panel grupo-cuidado" aria-label="${esc(tituloGrupo)}">
-          <div class="titulo-fila">
-            <h2 class="h3">${ico(iconoGrupo)}${esc(tituloGrupo)}</h2>
-            <span class="chip ${clsChip}">${deGrupo.length + lineas(textoLegacy).length}</span>
-          </div>
-          ${deGrupo.length ? `<div class="actividades-cards">${deGrupo.map(tarjetaActividadPersonal).join('')}</div>` : ''}
-          ${textoLegacy ? `<ul class="lista-cuidado-texto">${listaHtml(textoLegacy)}</ul>` : ''}
-          ${textoLimites ? `<div class="bloque"><p class="rotulo">Límites y cómo volver de a poco</p><ul class="lista-cuidado-texto">${listaHtml(textoLimites)}</ul></div>` : ''}
-          ${!tieneAlgo ? `<p class="sub">${esc(vacioMsg)}</p>` : ''}
-        </section>`;
-      }).join('')}
-      ${!c.puede && c.limites ? `<section class="panel grupo-cuidado"><h2 class="h3">${ico('info')}Límites y cuidados anotados</h2><ul class="lista-cuidado-texto">${listaHtml(c.limites)}</ul></section>` : ''}
-    </div>
-
-    ${c.fuente ? `<p class="nota">Fuente general: <b>${esc(c.fuente)}</b>${c.fecha ? ' · Fecha: ' + esc(c.fecha) : ''}</p>` : ''}
-    ${c.editado ? `<p class="nota">Anotó ${esc(c.editado.quien)} · ${fechaCorta(new Date(c.editado.ts))}</p>` : ''}
-    ${esAdmin() ? `<a class="btn pri" href="#agenda/cuidados/editar">${ico('edit')}Editar indicaciones</a>` : '<p class="nota">Fabián puede cargar o actualizar las indicaciones personales desde su perfil.</p>'}
-
-    ${bloqueEducacionGeneral()}
+    <a class="btn quieto izq" href="#agenda">${ico('left')}Volver a Agenda</a>
+    ${deAPoco()}
+    ${hayPauta ? `<div class="cuidados-lista">${grupos}</div>` : '<p class="sub grande">Falta cargar las indicaciones.</p>'}
+    ${esAdmin() ? `<a class="btn quieto" href="#agenda/cuidados/editar">${ico('edit')}Editar indicaciones</a>` : ''}
     <a class="btn sec" href="#comidas/guia/colaciones">${ico('apple')}Ideas para colaciones</a>
   </div>`;
 }
@@ -328,4 +259,20 @@ acciones.guardarCuidados = () => {
   db.guardarConfig({ cuidados: c, editado: c.editado });
   aviso('Indicaciones guardadas');
   location.hash = '#agenda/cuidados';
+};
+acciones.pegarItemsCuidado = () => {
+  if (!esAdmin()) return;
+  const c = (estado.config && estado.config.cuidados) || {};
+  const lista = asegurarBorradorItems(c);
+  leerItemsDom();
+  const EST = { puede: 'autorizado', autorizado: 'autorizado', evitar: 'evitar', preguntar: 'consultar', consultar: 'consultar' };
+  let n = 0;
+  lineas(val('cuidado-pegar')).forEach((l) => {
+    const [e, actividad, motivo, limite] = l.split('|').map((x) => (x || '').trim());
+    if (!actividad) return;
+    lista.push({ id: 'ac' + idAzar(6), actividad, estado: EST[(e || '').toLowerCase()] || 'consultar', motivo: motivo || '', limite: limite || '', fuente: c.fuente || '', fecha: c.fecha || '', revision: '' });
+    n++;
+  });
+  aviso(n ? `${n} tarjetas agregadas. Revisa y guarda.` : 'No se encontraron líneas válidas.');
+  pintar();
 };

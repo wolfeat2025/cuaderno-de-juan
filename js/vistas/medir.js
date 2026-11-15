@@ -2,7 +2,7 @@
 import { estado, acciones, pintar, ir, aviso, paraGuardar } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, porId, claveFecha, deClave, sumarDias, hhmm, fechaCorta, fechaLarga, diaRelativo, copiar, compartir } from '../util.js';
-import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, rutinaDe, clasificar, mensaje, azucarBaja, valorTexto, detalleMomento, duracion } from '../datos.js';
+import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, mensaje, azucarBaja, valorTexto, detalleMomento, duracion } from '../datos.js';
 import { itemsDelDia, sinSubir, medicionesDeTarea } from '../plan.js';
 import { guiaMaquina } from '../guias.js';
 
@@ -24,26 +24,19 @@ function chispa(t) {
 
 // Recordatorio breve de la rutina real de cuatro mediciones, leyendo los horarios configurados.
 function recordatorioMedir() {
-  const r = rutinaDe(estado.config), mapa = {};
-  r.forEach((x) => { mapa[x.id] = x.hora; });
-  const hAzucar = [mapa['glu-ayunas'] ? `ayunas ${mapa['glu-ayunas']}` : '', mapa['glu-almuerzo'] ? `almuerzo + 2 h (${mapa['glu-almuerzo']})` : ''].filter(Boolean).join(' · ');
-  const hPresion = [mapa['pre-manana'] ? `mañana ${mapa['pre-manana']}` : '', mapa['pre-noche'] ? `noche ${mapa['pre-noche']}` : ''].filter(Boolean).join(' · ');
   return `<div class="panel cuidado recordatorio-medir" role="region" aria-label="Recordatorio de mediciones">
     <div class="rec-fila">
       <span class="rec-iconos" aria-hidden="true">${ico('sun')}${ico('soup')}</span>
-      <div>
-        <p class="tit">Azúcar: en ayunas y 2 h después de empezar a almorzar.</p>
-        ${hAzucar ? `<p class="sub">Horario configurado: ${esc(hAzucar)}</p>` : ''}
-      </div>
+      <p class="tit">Azúcar: en ayunas y 2 h después de empezar a almorzar.</p>
     </div>
     <div class="rec-fila">
       <span class="rec-iconos" aria-hidden="true">${ico('sun')}${ico('moon')}</span>
-      <div>
-        <p class="tit">Presión y pulso: mañana y noche.</p>
-        ${hPresion ? `<p class="sub">Horario configurado: ${esc(hPresion)}</p>` : ''}
-      </div>
+      <p class="tit">Presión y pulso: mañana y noche.</p>
     </div>
-    <p class="nota">Horarios organizados por la familia en la app (se cambian en Ajustes).</p>
+    <div class="rec-fila">
+      <span class="rec-iconos" aria-hidden="true">${ico('sun')}${ico('balanza')}</span>
+      <p class="tit">Peso: cada mañana, antes de desayunar.</p>
+    </div>
   </div>`;
 }
 
@@ -86,27 +79,106 @@ function principal() {
   </div>`;
 }
 
-function grafico(t) {
-  const hoy = estado.ahora, ini = sumarDias(hoy, -6).getTime(), fin = sumarDias(hoy, 1).getTime();
-  const ms = deTipo(t).filter((m) => m.ts >= ini).slice().reverse();
-  if (ms.length < 2) return '<p class="nota">El gráfico aparece cuando haya al menos 2 mediciones.</p>';
-  const W = 330, H = 170, L = 40, R = 8, T = 12, B = 30;
-  const todos = []; ms.forEach((m) => { todos.push(Number(m.valor)); if (t === 'presion') todos.push(Number(m.valor2)); });
-  let lo = Math.min.apply(null, todos), hi = Math.max.apply(null, todos);
-  const margen = Math.max(5, (hi - lo) * 0.2); lo = Math.floor(lo - margen); hi = Math.ceil(hi + margen);
-  const x = (ts) => L + ((ts - ini) / (fin - ini)) * (W - L - R);
-  const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
-  const color = { verde: 'var(--acc)', amarillo: 'var(--amb)', rojo: 'var(--red)' };
-  const serie = (campo, cls) => {
-    const pts = ms.map((m) => `${x(m.ts).toFixed(1)},${y(Number(m[campo])).toFixed(1)}`).join(' ');
-    const dots = ms.map((m) => `<circle cx="${x(m.ts).toFixed(1)}" cy="${y(Number(m[campo])).toFixed(1)}" r="5" fill="${color[clasificar(m, estado.config.rangos)]}"/>`).join('');
-    return `<polyline class="${cls}" fill="none" points="${pts}"/>${dots}`;
-  };
-  let ejes = '';
-  [lo, Math.round((lo + hi) / 2), hi].forEach((v) => { ejes += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="guia"/><text x="${L - 6}" y="${y(v) + 5}" text-anchor="end">${v}</text>`; });
-  for (let i = 0; i < 7; i++) { const d = sumarDias(hoy, i - 6); ejes += `<text x="${x(d.getTime() + 12 * 3600000)}" y="${H - 8}" text-anchor="middle">${i === 6 ? 'Hoy' : fechaCorta(d).slice(0, 3)}</text>`; }
-  return `<svg class="grafico" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Gráfico de ${TIPOS[t].nombre} de los últimos 7 días">${ejes}${serie('valor', 'l1')}${t === 'presion' ? serie('valor2', 'l2') : ''}</svg>
-    ${t === 'presion' ? '<p class="nota">Línea gruesa: arriba. Línea delgada: abajo.</p>' : ''}`;
+// ---- Guía visual: qué valor está bien según el momento del día ----
+// Lee los rangos de la configuración (si el médico da otros, se cambian en Ajustes y esto se actualiza solo).
+const nn = (v) => (v === null || v === undefined || v === '' || isNaN(Number(v)) ? null : Number(v));
+// cortes: [desde, color] en orden ascendente; cada tramo llega hasta el siguiente corte.
+function zonas(t, momento) {
+  const R = estado.config.rangos, r = R[t] || {};
+  if (t === 'presion') return { lo: 80, hi: 180, cortes: [[80, nn(r.sisRojoBajo) ? 'rojo' : 'verde'], [nn(r.sisRojoBajo) !== null ? nn(r.sisRojoBajo) + 1 : null, 'verde'], [nn(r.sisMax), 'amarillo'], [nn(r.sisRojoAlto), 'rojo']], marca: [nn(r.sisMax), `${r.sisMax}/${r.diaMax}`] };
+  if (t === 'pulso') return { lo: 40, hi: 140, cortes: [[40, nn(r.rojoBajo) ? 'rojo' : 'amarillo'], [nn(r.rojoBajo) !== null ? nn(r.rojoBajo) + 1 : null, 'amarillo'], [nn(r.min), 'verde'], [nn(r.max) !== null ? nn(r.max) + 1 : null, 'amarillo'], [nn(r.rojoAlto), 'rojo']], marcas: [nn(r.min), nn(r.max)] };
+  if (t === 'oxigeno') return { lo: 85, hi: 100, cortes: [[85, 'rojo'], [nn(r.rojoBajo), 'amarillo'], [nn(r.min), 'verde']], marcas: [nn(r.rojoBajo), nn(r.min)] };
+  if (momento === 'despues') return { lo: 50, hi: 260, cortes: [[50, 'rojo'], [nn(r.rojoBajo), 'verde'], [nn(r.despMax), 'amarillo'], [nn(r.rojoAlto), 'rojo']], marcas: [nn(r.rojoBajo), nn(r.despMax)] };
+  return { lo: 50, hi: 260, cortes: [[50, 'rojo'], [nn(r.rojoBajo), 'amarillo'], [nn(r.ayMin), 'verde'], [nn(r.ayMax) !== null ? nn(r.ayMax) + 1 : null, 'amarillo'], [nn(r.rojoAlto), 'rojo']], marcas: [nn(r.ayMin), nn(r.ayMax)] };
+}
+
+function barra(t, momento, m) {
+  const z = zonas(t, momento), pct = (v) => Math.max(0, Math.min(100, ((v - z.lo) / (z.hi - z.lo)) * 100));
+  const cortes = z.cortes.filter((c) => c[0] !== null);
+  const tramos = cortes.map((c, i) => {
+    const fin = i + 1 < cortes.length ? cortes[i + 1][0] : z.hi;
+    return `<span class="tramo ${c[1]}" style="left:${pct(c[0]).toFixed(1)}%;width:${(pct(fin) - pct(c[0])).toFixed(1)}%"></span>`;
+  }).join('');
+  const etiquetas = z.marca ? [[z.marca[0], z.marca[1]]] : (z.marcas || []).filter((v) => v !== null).map((v) => [v, v]);
+  const marcas = etiquetas.map(([v, txt]) => `<span class="marca" style="left:${pct(v).toFixed(1)}%">${esc(String(txt))}</span>`).join('');
+  const c = m ? clasificar(m, estado.config.rangos) : '';
+  const punto = m ? `<span class="punto ${c}" style="left:${pct(Number(m.valor)).toFixed(1)}%" title="${esc(valorTexto(m))}"></span>` : '';
+  return `<div class="barra-rango">${tramos}${punto}</div><div class="marcas-rango">${marcas}</div>`;
+}
+
+// ---- Peso: cómo va la semana (sin colores: nadie ha indicado un rango) ----
+const kg = (v) => v.toFixed(1).replace('.', ',');
+function pesoDelDia(clave) {
+  const ms = deTipo('peso').filter((m) => m.fecha === clave);
+  return ms.length ? Number(ms[ms.length - 1].valor) : null; // el más temprano del día
+}
+function semanaPeso() {
+  const dias = [];
+  for (let k = 6; k >= 0; k--) { const d = sumarDias(estado.ahora, -k); dias.push({ d, v: pesoDelDia(claveFecha(d)), hoy: k === 0 }); }
+  const prev = [];
+  for (let k = 13; k >= 7; k--) { const v = pesoDelDia(claveFecha(sumarDias(estado.ahora, -k))); if (v !== null) prev.push(v); }
+  const pts = dias.filter((x) => x.v !== null);
+  if (pts.length < 2) return `<div class="panel guia-rango"><p class="rotulo">Cómo va la semana</p><p class="sub grande">Con dos días anotados aparece la línea de la semana.</p></div>${pasosPeso()}`;
+  const media = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+  const prom = media(pts.map((x) => x.v));
+  let tendencia = '';
+  if (prev.length >= 2) {
+    const dif = prom - media(prev);
+    tendencia = Math.abs(dif) < 0.5 ? `<span class="chip neutro">${ico('right')}Estable</span>` : `<span class="chip neutro">${ico(dif < 0 ? 'down' : 'up')}${dif < 0 ? 'Bajó' : 'Subió'} ${kg(Math.abs(dif))} kg</span>`;
+  }
+  const vs = pts.map((x) => x.v); let lo = Math.min.apply(null, vs) - 1, hi = Math.max.apply(null, vs) + 1;
+  if (hi - lo < 3) { const c = (hi + lo) / 2; lo = c - 1.5; hi = c + 1.5; }
+  const W = 330, H = 176, L = 12, R = 12, T = 30, B = 30;
+  const x = (i) => L + 14 + (i * (W - L - R - 28)) / 6, y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const linea = dias.map((p, i) => (p.v === null ? null : `${x(i).toFixed(1)},${y(p.v).toFixed(1)}`)).filter(Boolean).join(' ');
+  const puntos = dias.map((p, i) => p.v === null ? '' : `<g class="peso-punto" style="animation-delay:${(0.25 + i * 0.12).toFixed(2)}s"><circle cx="${x(i).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="${p.hoy ? 8 : 6}"/><text x="${x(i).toFixed(1)}" y="${(y(p.v) - 14).toFixed(1)}" text-anchor="middle">${kg(p.v)}</text></g>`).join('');
+  const etiquetas = dias.map((p, i) => `<text class="peso-dia${p.hoy ? ' hoy' : ''}" x="${x(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${p.hoy ? 'Hoy' : fechaCorta(p.d).slice(0, 3)}</text>`).join('');
+  return `<div class="panel guia-rango peso-semana">
+    <div class="cab-rango"><span class="tit">${ico('balanza')}Esta semana</span><span class="v">${kg(prom)} kg</span></div>
+    ${tendencia ? `<div>${tendencia}</div>` : ''}
+    <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Peso de los últimos 7 días, promedio ${kg(prom)} kilos">
+      <line class="peso-prom" x1="${L}" x2="${W - R}" y1="${y(prom).toFixed(1)}" y2="${y(prom).toFixed(1)}"/>
+      <polyline class="peso-linea" points="${linea}"/>${puntos}${etiquetas}
+    </svg>
+    <p class="sub">Un día suelto cambia por agua. Mira la línea punteada: es el promedio de la semana.</p>
+  </div>${pasosPeso()}`;
+}
+// Tres pasos visuales: cómo pesarse y cuándo avisar. Sin cifras (las da el médico).
+function pasosPeso() {
+  const pasos = [[ico('sun'), 'Cada mañana', 'Después del baño, antes de desayunar'], [ico('chart'), 'Mira la semana', 'No un día suelto'], [ico('phone'), 'Avisar al médico', 'Si baja semana tras semana o sube de golpe']];
+  return `<section class="panel de-a-poco" aria-label="Cómo usar el peso"><p class="rotulo">El peso, paso a paso</p>
+    <div class="dap-pasos">${pasos.map(([ic, t, st], i) => `${i ? '<span class="dap-linea"></span>' : ''}<div class="dap-paso dap-${i + 1}"><span class="dap-ic">${ic}</span><p class="tit">${t}</p><p class="sub">${st}</p></div>`).join('')}</div></section>`;
+}
+
+const MOMENTOS = {
+  presion: [['manana', 'Mañana', 'sun'], ['noche', 'Noche', 'moon']],
+  pulso: [['manana', 'Mañana', 'sun'], ['noche', 'Noche', 'moon']],
+  azucar: [['ayunas', 'En ayunas', 'sun'], ['despues', '2 h después de almorzar', 'soup']],
+  oxigeno: [['', 'Cualquier hora', 'clock']],
+};
+// Última medición de hoy que corresponde a ese momento del día.
+function deHoy(t, momento) {
+  const hoy = claveFecha(estado.ahora);
+  return deTipo(t).find((m) => {
+    if (m.fecha !== hoy) return false;
+    if (t === 'azucar') return momento === 'despues' ? m.momento === 'despues' : m.momento !== 'despues';
+    if (t === 'presion' || t === 'pulso') return (new Date(m.ts).getHours() < 15) === (momento === 'manana');
+    return true;
+  });
+}
+
+function guiaRango(t) {
+  if (t === 'peso') return semanaPeso();
+  const hay = {};
+  MOMENTOS[t].forEach(([k]) => zonas(t, k).cortes.forEach((c) => { if (c[0] !== null) hay[c[1]] = true; }));
+  const filas = MOMENTOS[t].map(([k, nombre, icono]) => {
+    const m = deHoy(t, k), c = m ? clasificar(m, estado.config.rangos) : '';
+    return `<div class="fila-rango">
+      <div class="cab-rango"><span class="tit">${ico(icono)}${nombre}</span>${m ? `<span class="v ${c}">${valorTexto(m)}</span>` : '<span class="sub">Hoy: —</span>'}</div>
+      ${barra(t, k, m)}</div>`;
+  }).join('');
+  return `<div class="panel guia-rango"><p class="rotulo">¿Qué está bien?</p>${filas}
+    <div class="ley-rango">${[['verde', 'Bien'], ['amarillo', 'Revisar'], ['rojo', 'Avisar']].filter(([k]) => hay[k]).map(([k, n]) => `<span><i class="${k}"></i>${n}</span>`).join('')}</div></div>`;
 }
 
 function historial(t) {
@@ -117,10 +189,11 @@ function historial(t) {
   ms.forEach((m) => {
     if (m.fecha !== dia) { dia = m.fecha; h += `<p class="rotulo dia-hist">${diaRelativo(dia, hoy) === fechaCorta(deClave(dia)) ? fechaLarga(deClave(dia)) : diaRelativo(dia, hoy)}</p>`; }
     const c = clasificar(m, estado.config.rangos), abierta = estado.ui.medAbierta === m.id;
-    const extra = [detalleMomento(m), m.animo ? `se siente ${m.animo.toLowerCase()}` : '', m.nota, m.despues ? 'anotado después' : '', sinSubir(m) ? 'sin subir' : ''].filter(Boolean).map(esc).join(' · ');
-    h += `<div class="reg" data-k="${m.id}"><div class="toca-area" data-a="abrirMed" data-id="${m.id}" role="button" tabindex="0">
-        <span class="h">${hhmm(new Date(m.ts))}</span><span class="v ${c}">${valorTexto(m)}</span><span class="estado ${c}"><span class="luz"></span>${ETIQUETA[c]}</span></div>
-      <p class="sub">${esc(m.quien)}${extra ? ' · ' + extra : ''}</p>
+    const cuando = t === 'azucar' ? ({ despues: 'después', antes: 'antes de comer' }[m.momento] || 'ayunas') : '';
+    const extra = [m.nota, sinSubir(m) ? 'sin subir' : ''].filter(Boolean).map(esc).join(' · ');
+    h += `<div class="reg compacto" data-k="${m.id}"><div class="toca-area" data-a="abrirMed" data-id="${m.id}" role="button" tabindex="0">
+        <span class="h">${hhmm(new Date(m.ts))}</span><span class="luz ${c}" aria-label="${ETIQUETA[c]}"></span><span class="v ${c}">${valorTexto(m)}</span><span class="quien">${cuando ? cuando + ' · ' : ''}${esc(m.quien)}</span></div>
+      ${extra ? `<p class="sub">${extra}</p>` : ''}
       ${abierta ? `<button class="btn quieto" data-a="borrarMed" data-id="${m.id}">${ico('trash')}Borrar esta medición</button>` : ''}</div>`;
   });
   return h;
@@ -141,7 +214,8 @@ function contexto(t, tid) {
 function formulario(t, tid) {
   const T = TIPOS[t], u = estado.ui, ctx = contexto(t, tid);
   const maquina = t === 'presion' ? [' · Sistema', ' · Día'] : ['', ''];
-  const campos = T.campos.map((c, i) => `<div class="campo"><label for="m${i}">${c[0]}${maquina[i] || ''}</label><input class="numero" id="m${i}" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="3" placeholder="—"></div>`).join(T.campos.length > 1 ? '<span class="barra">/</span>' : '');
+  const entrada = T.decimal ? 'inputmode="decimal" maxlength="5"' : 'inputmode="numeric" pattern="[0-9]*" maxlength="3"';
+  const campos = T.campos.map((c, i) => `<div class="campo"><label for="m${i}">${c[0]}${maquina[i] || ''}</label><input class="numero" id="m${i}" ${entrada} autocomplete="off" placeholder="—"></div>`).join(T.campos.length > 1 ? '<span class="barra">/</span>' : '');
   const pulso = t === 'presion' ? `<div class="campo campo-pulso"><label for="m2">Pulso · Bey/MIN (si lo quieres anotar)</label><input class="numero" id="m2" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="3" placeholder="—"></div>` : '';
   const chips = (lista, accion) => lista.map(([k, n]) => `<button class="opcion${ctx === k ? ' sel' : ''}" data-a="${accion}" data-v="${k}">${n}</button>`).join('');
   let momento = '';
@@ -179,9 +253,8 @@ function formulario(t, tid) {
     <input class="texto" id="mnota" placeholder="Nota corta (opcional)" maxlength="120" autocomplete="off">
     ${u.errorMedir ? `<p class="error" role="alert">${ico('alert')}${esc(u.errorMedir)}</p>` : ''}
     <button class="btn pri" data-a="guardarMedicion" data-tipo="${t}" data-tid="${esc(tid || '')}">${ico('check')}Guardar</button>
-    <div class="panel"><p class="rotulo">Últimos 7 días</p>${grafico(t)}</div>
+    ${guiaRango(t)}
     <div class="lista-hist">${historial(t)}</div>
-    <p class="nota">${AVISO_MEDICO}</p>
   </div>`;
 }
 
@@ -203,7 +276,7 @@ function resultado(t, id) {
   const mal = m.animo === 'Mal', serio = mal || c === 'rojo' || cp === 'rojo';
   return `<div class="envoltura" data-k="res-${id}">
     <div class="resultado ${c}">
-      <span class="chip ${c === 'verde' ? 'ok' : c === 'amarillo' ? 'amb' : 'rojo'}">${ico(c === 'verde' ? 'ccheck' : 'alert')}${msj[0]}</span>
+      <span class="chip ${c === 'verde' ? 'ok' : c === 'amarillo' ? 'amb' : c === 'rojo' ? 'rojo' : 'neutro'}">${ico(c === 'verde' || c === 'neutro' ? 'ccheck' : 'alert')}${msj[0]}</span>
       <p class="v">${valorTexto(m)}<small>${TIPOS[t].unidad && t !== 'oxigeno' ? ' ' + TIPOS[t].unidad : ''}</small></p>
       <p class="que">${msj[1]}</p>
       <p class="sub">${TIPOS[t].nombre}${detalleMomento(m) ? ' ' + detalleMomento(m) : ''} · Guardado por ${esc(m.quien)} a las ${hhmm(new Date(m.ts))}</p>
@@ -286,8 +359,8 @@ acciones.guardarMedicion = (d) => {
   const t = d.tipo, T = TIPOS[t], u = estado.ui, vals = [];
   const falla = (texto, campo) => { u.errorMedir = texto; pintar(); if (campo && porId(campo)) porId(campo).focus(); };
   for (let i = 0; i < T.campos.length; i++) {
-    const crudo = val('m' + i), n = Number(crudo), c = T.campos[i];
-    if (!/^\d{1,3}$/.test(crudo)) return falla(`Falta el número de "${c[0]}".`, 'm' + i);
+    const crudo = val('m' + i).replace(',', '.'), n = Number(crudo), c = T.campos[i];
+    if (!(T.decimal ? /^\d{1,3}(\.\d)?$/ : /^\d{1,3}$/).test(crudo)) return falla(`Falta el número de "${c[0]}".`, 'm' + i);
     if (n < c[1] || n > c[2]) return falla(`Revisa el número de "${c[0]}": ${n} no parece correcto.`, 'm' + i);
     vals.push(n);
   }
@@ -313,6 +386,7 @@ acciones.guardarMedicion = (d) => {
   const m = { tipo: t, valor: vals[0], fecha: claveFecha(ahora), ts, creado: ahora.getTime(), quien: estado.quien };
   if (u.otraHora) m.despues = true;
   if (t === 'presion') { m.valor2 = vals[1]; m.tarea = ctx === 'otro' ? '' : ctx; }
+  if (t === 'peso' && d.tid === 'peso-manana') m.tarea = 'peso-manana';
   if (t === 'azucar') {
     m.momento = ctx === 'almuerzo' ? 'despues' : ctx;
     m.tarea = ctx === 'ayunas' ? 'glu-ayunas' : ctx === 'almuerzo' ? 'glu-almuerzo' : '';

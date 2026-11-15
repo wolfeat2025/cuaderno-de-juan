@@ -114,7 +114,7 @@ const RANGOS = [
   ['azucar', 'Azúcar (mg/dL)', [['ayMin', 'Ayunas: desde'], ['ayMax', 'Ayunas: hasta'], ['despMax', 'Después de comer: bajo'], ['rojoBajo', 'Rojo: menor que'], ['rojoAlto', 'Rojo: desde']]],
   ['oxigeno', 'Oxígeno (%)', [['min', 'Normal desde'], ['rojoBajo', 'Rojo: menor que']]],
 ];
-const RUTINA = [['ayunas', 'Azúcar en ayunas'], ['manana', 'Presión de la mañana'], ['noche', 'Presión de la noche']];
+const RUTINA = [['ayunas', 'Azúcar en ayunas'], ['peso', 'Peso en la mañana'], ['manana', 'Presión de la mañana'], ['noche', 'Presión de la noche']];
 function editorRangos() {
   const c = estado.config, u = estado.ui;
   if (u.provisorio === undefined) u.provisorio = c.rangos.provisorio !== false;

@@ -6,6 +6,7 @@ import { TIPOS, ETIQUETA, TAREAS, clasificar, valorTexto, detalleMomento } from 
 import { itemsDelDia, medicionesDeTarea, medicionesDeTurno, sinSubir } from '../plan.js';
 import { tiraSemana, bloqueLineaDia, COMIO } from './hoy.js';
 import { resumenCuidadosPortada } from './cuidados.js';
+import { tarjetaRecuperacion } from './recuperacion.js';
 import { resumenCorazonPortada } from './corazon.js';
 
 function estadoSincDiscreto() {
@@ -23,6 +24,7 @@ function bloqueUltimosRegistros(hoy, ayer) {
   const tipos = ['presion', 'pulso', 'azucar'];
   const cuidados = estado.config.cuidados || {};
   if (estado.mediciones.some((m) => m.tipo === 'oxigeno') || /ox[ií]geno|saturaci[oó]n/i.test([cuidados.puede, cuidados.evitar, cuidados.limites].join(' '))) tipos.push('oxigeno');
+  if (estado.mediciones.some((m) => m.tipo === 'peso')) tipos.push('peso');
   const lecturas = tipos.map((t) => ({ tipo: t, m: estado.mediciones.find((m) => m.tipo === t) }));
   const existentes = lecturas.filter((x) => x.m);
   const colores = existentes.map((x) => clasificar(x.m, R));
@@ -190,6 +192,7 @@ export function render() {
       <button type="button" class="btn pri" data-a="verDia" data-dia="${hoy}">${ico('left')}Volver a hoy</button>
     </div>` : ''}
 
+    ${modo === 'hoy' ? tarjetaRecuperacion() : ''}
     ${modo === 'hoy' ? bloqueUltimosRegistros(hoy, ayer) : ''}
     ${modo === 'hoy' ? bloqueAhoraTeToca(hoy, ahoraHM, items) : ''}
     ${modo === 'hoy' ? resumenCorazonPortada() : ''}

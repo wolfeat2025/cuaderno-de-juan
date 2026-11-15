@@ -151,23 +151,22 @@ export const dibujoPlatoCorazon = () => `<svg class="plato-corazon" viewBox="0 0
   </g>
 </svg>`;
 
-export const PASOS_COMIDA_CORAZON = [
-  ['1. Armar el plato con medida', 'Verduras en la mitad del plato, una proteína magra (pescado, pollo sin piel, legumbres o huevo) y una porción medida de carbohidratos, cocinando con poca sal y sin azúcar añadida.'],
-  ['2. Acompañar el azúcar y la presión', 'Repartir los carbohidratos de forma ordenada ayuda a evitar subidas bruscas de glucosa después de comer, y comer con menos sal apoya el manejo de la presión arterial.'],
-  ['3. Cuidar los vasos sanguíneos a largo plazo', 'Mantener la glucosa, la presión y el colesterol en rango a lo largo de las semanas disminuye la exigencia sobre los vasos sanguíneos y el corazón.'],
-];
-
-export const FUENTES_COMIDA_CORAZON = [
-  {
-    org: 'American Heart Association (AHA)',
-    tema: 'Patrón general de alimentación y estilo de vida cardiovascular',
-    url: 'https://www.heart.org/en/healthy-living/healthy-eating/eat-smart/nutrition-basics/aha-diet-and-lifestyle-recommendations',
-    consulta: 'Consultado el 14 de noviembre de 2026',
-  },
-  {
-    org: 'Centers for Disease Control and Prevention (CDC)',
-    tema: 'Relación entre control de la glucosa, presión arterial y cuidado del corazón',
-    url: 'https://www.cdc.gov/diabetes/diabetes-complications/diabetes-and-your-heart.html',
-    consulta: 'Consultado el 14 de noviembre de 2026',
-  },
+// ¿Por qué importa? (familia): cuatro tarjetas visuales, poco texto, aparecen una tras otra.
+// Cada dibujo compara "así no" (ámbar) con "así sí" (verde). Sin cifras clínicas.
+const salero = (x, granos) => `<g class="ce-salero"><rect x="${x - 11}" y="12" width="22" height="26" rx="6"/><path d="M${x - 11} 18h22v-4a6 6 0 0 0-6-6h-10a6 6 0 0 0-6 6z" class="tapa"/>${granos.map(([dx, dy], i) => `<circle class="grano g${i}" cx="${x + dx}" cy="${dy}" r="2.4"/>`).join('')}</g>`;
+const medidor = (cx, cls) => `<g class="ce-medidor"><path class="z-verde" d="M${cx - 34} 94A34 34 0 0 1 ${cx - 17} 64.6"/><path class="z-amb" d="M${cx - 17} 64.6A34 34 0 0 1 ${cx + 17} 64.6"/><path class="z-rojo" d="M${cx + 17} 64.6A34 34 0 0 1 ${cx + 34} 94"/>
+  <line class="aguja ${cls}" x1="${cx}" y1="94" x2="${cx}" y2="66" style="transform-origin:${cx}px 94px"/><circle class="eje" cx="${cx}" cy="94" r="4"/></g>`;
+const flecha = '<path class="ce-flecha" d="M108 60h20m-6-6 6 6-6 6"/>';
+export const EXPLICA_COMIDA = [
+  ['Menos sal', 'La presión queda más tranquila.', `<svg viewBox="0 0 240 100" aria-hidden="true">${salero(55, [[-6, 44], [0, 48], [6, 43], [-3, 54], [4, 56]])}${medidor(55, 'alta')}${flecha}${salero(185, [[0, 46]])}${medidor(185, 'baja')}</svg>`],
+  ['Sin azúcar añadida', 'El azúcar en la sangre sube menos.', `<svg viewBox="0 0 240 100" aria-hidden="true"><line class="ce-base" x1="8" y1="86" x2="232" y2="86"/>
+    <g class="ce-cubos"><rect x="14" y="18" width="13" height="13" rx="3"/><rect x="29" y="18" width="13" height="13" rx="3"/><rect x="21.5" y="4" width="13" height="13" rx="3"/></g>
+    <path class="ce-curva pico" d="M10 86C38 86 44 18 60 18S82 86 106 86"/>${flecha}
+    <path class="ce-gota" d="M150 8c6 8 9 12 9 16a9 9 0 0 1-18 0c0-4 3-8 9-16z"/>
+    <path class="ce-curva suave" d="M134 86C160 86 168 62 182 62S206 86 232 86"/></svg>`],
+  ['Mitad verduras', 'Pan, arroz o papa: solo uno.', `<svg viewBox="0 0 240 100" aria-hidden="true"><circle class="ce-loza" cx="120" cy="50" r="46"/>
+    <path class="ce-a" d="M120 8a42 42 0 0 0 0 84z"/><path class="ce-b" d="M120 50V8a42 42 0 0 1 42 42z"/><path class="ce-c" d="M120 50h42a42 42 0 0 1-42 42z"/>
+    <text x="56" y="56" text-anchor="end">½</text><text x="186" y="30">¼</text><text x="186" y="84">¼</text></svg>`],
+  ['Un cambio a la vez', 'Cada semana suma.', `<svg viewBox="0 0 240 100" aria-hidden="true">${[0, 1, 2, 3].map((i) => `<rect class="ce-escalon e${i}" x="${20 + i * 52}" y="${80 - i * 18}" width="48" height="${12 + i * 18}" rx="6"/>`).join('')}
+    <path class="ce-corazon" d="M190 22 182 14a5.5 5.5 0 0 1 8-7.5 5.5 5.5 0 0 1 8 7.5z"/></svg>`],
 ];

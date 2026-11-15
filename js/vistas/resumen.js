@@ -2,7 +2,7 @@
 import { estado, acciones, pintar } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, claveFecha, deClave, sumarDias, lunesDe, hhmm, fechaLarga, fechaCorta, DIAS, MESES, mayus } from '../util.js';
-import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, valorTexto, detalleMomento } from '../datos.js';
+import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, valorTexto, detalleMomento, esAviso } from '../datos.js';
 import { itemsDelDia, resumenRemedios, medicionesDeTarea, INFO_COMIDA } from '../plan.js';
 import { anillo } from './hoy.js';
 
@@ -140,7 +140,7 @@ function seccionesDia(f, d) {
   return `<div class="cifras"><div><b>${conReg} de ${meds.length}</b><span>tomas con registro</span></div><div><b>${ms.length}</b><span>${ms.length === 1 ? 'medición' : 'mediciones'}</span></div><div><b>${comReg} de ${comidas.length}</b><span>comidas con registro</span></div></div>
     <h3>Remedios</h3>${tabla(['Hora', 'Remedio', 'Dosis', 'Registro'], meds.map((i) => { const t = d.tomas[i.id]; return [i.hora, esc(i.r.nombre), esc(i.r.dosis || '—'), t ? `Dado a las ${hhmm(new Date(t.ts))} · ${esc(t.quien)}${t.corregido ? ' (hora corregida)' : ''}` : falta(i)]; }))}
     ${rutina.length ? `<h3>Rutina de mediciones</h3>${tabla(['Hora prevista', 'Tarea', 'Registro'], rutina.map((i) => { const r = medicionesDeTarea(f, i.tid, d); return [i.hora, TAREAS[i.tid].nombre, r.length ? r.map((m) => `<b>${valorTexto(m)}</b> a las ${hhmm(new Date(m.ts))} · ${esc(m.quien)}`).join('<br>') : falta(i)]; }))}` : ''}
-    <h3>Mediciones</h3>${tabla(['Hora', 'Medición', 'Valor', 'Según rangos', 'Anotó', 'Nota'], ms.map((m) => [hhmm(new Date(m.ts)), TIPOS[m.tipo].nombre + (detalleMomento(m) ? ` (${detalleMomento(m)})` : ''), `<b>${valorTexto(m)}</b>${TIPOS[m.tipo].unidad && m.tipo !== 'oxigeno' ? ' ' + TIPOS[m.tipo].unidad : ''}`, estadoTxt(m), esc(m.quien), esc([m.animo ? `Se siente ${m.animo.toLowerCase()}` : '', m.nota || '', m.despues ? 'Anotado después' : ''].filter(Boolean).join('. ') || '—')]))}
+    <h3>Mediciones</h3>${tabla(['Hora', 'Medición', 'Valor', 'Según rangos', 'Anotó', 'Nota'], ms.map((m) => [hhmm(new Date(m.ts)), TIPOS[m.tipo].nombre + (detalleMomento(m) ? ` (${detalleMomento(m)})` : ''), `<b>${valorTexto(m)}</b>${TIPOS[m.tipo].unidad && m.tipo !== 'oxigeno' ? ' ' + TIPOS[m.tipo].unidad : ''}`, estadoTxt(m), esc(m.quien), esc([m.animo ? `Se siente ${m.animo.toLowerCase()}` : '', m.nota || ''].filter(Boolean).join('. ') || '—')]))}
     <h3>Comidas</h3>${tabla(['Hora prevista', 'Comida', 'Previsto', 'Porción indicada', 'Lo que comió y hora real'], comidas.map((i) => { const t = d.tomas[i.id]; return [i.hora, i.nombre, esc(i.texto || '—'), esc(i.porciones ? i.porciones.split('\n').join('; ') : 'Pendiente de indicar'), t ? `${COMIO[t.comio] || 'Anotado'}${t.nota ? ` · ${esc(t.nota)}` : ''} · a las ${hhmm(new Date(t.ts))}${t.corregido ? ` (corregido${t.editadoPor ? ' por ' + esc(t.editadoPor) : ''})` : t.despues ? ' (anotado después)' : ''} · ${esc(t.quien)}` : i.opcional ? 'Opcional · sin registro' : falta(i)]; }))}`;
 }
 
@@ -155,7 +155,7 @@ function seccionesSemana(lunes, d) {
     const vienen = f === hoy ? com.filter((i) => !d.tomas[i.id] && i.hora > hhmm(estado.ahora)).length : 0;
     return [`<b>${fechaCorta(deClave(f))}</b>`, r.total ? `${r.dados} de ${r.total}` : '—', celdaTipo(f, 'presion'), celdaTipo(f, 'pulso'), celdaTipo(f, 'azucar'), celdaTipo(f, 'oxigeno'), com.length ? `Todo ${c.todo} · Parte ${c.parte} · Nada ${c.nada} · Sin registro ${com.length - c.todo - c.parte - c.nada - vienen}${vienen ? ` · Por venir ${vienen}` : ''}` : '—'];
   });
-  const fuera = d.mediciones.filter((m) => clasificar(m, estado.config.rangos) !== 'verde').sort((a, b) => a.ts - b.ts);
+  const fuera = d.mediciones.filter((m) => esAviso(clasificar(m, estado.config.rangos))).sort((a, b) => a.ts - b.ts);
   const sinToma = []; dias.filter((f) => f <= hoy).forEach((f) => itemsDelDia(f, d).filter((i) => i.tipo === 'med' && !d.tomas[i.id] && (f < hoy || i.hora <= hhmm(estado.ahora))).forEach((i) => sinToma.push([fechaCorta(deClave(f)), i.hora, esc(i.r.nombre), esc(i.r.dosis || '—')])));
   const notas = d.mediciones.filter((m) => m.nota || m.animo === 'Mal' || m.animo === 'Regular').sort((a, b) => a.ts - b.ts);
   return `<h3>Resumen por día</h3>${tabla(['Día', 'Remedios', 'Presión', 'Pulso', 'Azúcar', 'Oxígeno', 'Comidas'], filas)}

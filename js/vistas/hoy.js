@@ -2,7 +2,7 @@
 import { estado, acciones, pintar, aviso, guardarLocal, leerLocal, esAdmin, esJuan, compacto, fijarCompacto, paraGuardar } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, val, claveFecha, deClave, sumarDias, hhmm, fechaLarga, diaRelativo, DIAS, mayus } from '../util.js';
-import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, valorTexto } from '../datos.js';
+import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, valorTexto, esAviso } from '../datos.js';
 import { itemsDelDia, resumenRemedios, medicionesDeTurno, medicionesDeTarea, planDe, sinSubir } from '../plan.js';
 
 const franja = (h) => (h < '12:00' ? 'Mañana' : h < '19:00' ? 'Tarde' : 'Noche');
@@ -100,7 +100,7 @@ function itemConAviso(it, dia) {
   if (estado.ui.tomaAbierta && it.id === estado.ui.tomaAbierta) return true;
   if (it.tipo === 'tarea') {
     const ms = medicionesDeTarea(dia, it.tid), ult = ms[ms.length - 1];
-    if (ult && clasificar(ult, estado.config.rangos) !== 'verde') return true;
+    if (ult && esAviso(clasificar(ult, estado.config.rangos))) return true;
   }
   return false;
 }
@@ -204,7 +204,7 @@ function resumenDelDia(dia, modo, items, ahoraHM) {
   const vencidos = pendientes.filter((it) => modo === 'pasado' || it.hora <= ahoraHM);
   const ultimasDelDia = ORDEN_TIPOS.map((t) => estado.mediciones.find((m) => m.tipo === t && m.fecha === dia)).filter(Boolean);
   const avisos = ultimasDelDia.map((m) => clasificar(m, estado.config.rangos));
-  const revisar = avisos.some((c) => c !== 'verde'), rojo = avisos.includes('rojo');
+  const revisar = avisos.some(esAviso), rojo = avisos.includes('rojo');
   const cls = rojo ? ' alerta' : revisar || vencidos.length ? ' amb' : ' ok';
   const titulo = revisar ? 'Hay mediciones para revisar'
     : vencidos.length ? `${vencidos.length === 1 ? 'Falta 1 registro' : `Faltan ${vencidos.length} registros`}${modo === 'pasado' ? ' de ese día' : ' hasta ahora'}`
