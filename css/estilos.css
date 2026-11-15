@@ -1110,3 +1110,55 @@ textarea.texto { resize: none; line-height: 1.35; }
 .rec-op svg { max-height: 70px; }
 .rec-resp { font-size: 16px; line-height: 1.25; }
 .rec-sub:empty { display: none; }
+
+/* ---------- Mi recuperación: dibujos v2 (plano con volumen) ---------- */
+.esc-svg .suelo { fill: #000; opacity: .08; }
+:root[data-tema="oscuro"] .esc-svg .suelo { opacity: .35; }
+@media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) .esc-svg .suelo { opacity: .35; } }
+.esc-svg .brillo { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; opacity: .55; }
+.esc-svg .brillo-v { fill: none; stroke: #fff; stroke-width: 2.5; stroke-linecap: round; opacity: .7; }
+.esc-svg .brillo-c { fill: #fff; opacity: .5; }
+.esc-svg .cz { fill: #D8403A; } .esc-svg .cz-s { fill: #B32E2A; }
+.esc-svg .pan { fill: #DDA04B; } .esc-svg .pan-s { fill: #B87A2E; } .esc-svg .pan-l { stroke: #9A5B1E; stroke-width: 2.6; }
+.esc-svg .vidrio { fill: #E6EEF4; stroke: #A7B4BF; stroke-width: 2; } .esc-svg .sal { fill: #fff; stroke: none; }
+.esc-svg .tapa { fill: #8E99A4; } .esc-svg .tapa-s { fill: #6F7A85; }
+.esc-svg .queso { fill: #F4C451; stroke: none; } .esc-svg .queso-s { fill: #D9A632; } .esc-svg .queso-h { fill: #D9A632; }
+.esc-svg .cec { fill: #8A2734; } .esc-svg .cec2 { fill: #B8404E; } .esc-svg .cec-s { fill: #9C3240; } .esc-svg .cec-p { fill: #F0B3BA; }
+.esc-svg .caldo { fill: #E9B533; stroke: none; } .esc-svg .caldo-s { fill: #C99520; } .esc-svg .caldo-t { fill: #F5CC5A; } .esc-svg .caldo-r { stroke: #C62828; stroke-width: 3; }
+.esc-svg .arroz { fill: #FBFAF4; stroke: none; } .esc-svg .grano-a { fill: #E8E3D3; }
+.esc-svg .taza { fill: #3E7CB1; } .esc-svg .taza-s { fill: #2F6596; }
+.esc-svg .papa { fill: #C9A06F; stroke: none; } .esc-svg .papa-s { fill: #A9814F; } .esc-svg .papa-o { fill: #8E6B43; }
+.esc-svg .botella { fill: #3A2318; stroke: none; } .esc-svg .botella-s { fill: #24150E; }
+.esc-svg .agua { fill: #A9D8F2; } .esc-svg .agua-t { fill: #7CC2E8; }
+.esc-svg .loza { fill: #FFFFFF; stroke: #CBD3DB; stroke-width: 2; } .esc-svg .loza-l { fill: none; stroke: #E3E8ED; stroke-width: 2; }
+.esc-svg .verd { fill: #5AA65D; } .esc-svg .verd-c { fill: #7DBF5A; } .esc-svg .prot { fill: #E3B27A; } .esc-svg .prot-s { fill: #C9935A; } .esc-svg .carbo { fill: #F6EFD9; }
+.esc-svg .pastillero { fill: #6C5FD6; } .esc-svg .pastillero-s { fill: #574AC0; } .esc-svg .pastillero-c { fill: #ECE9FD; } .esc-svg .dia { font-size: 8px; font-weight: 900; fill: #574AC0; }
+.esc-svg .zap { fill: #3E7CB1; } .esc-svg .zap-s { fill: #2F6596; stroke: none; } .esc-svg .zap-p { fill: #FFFFFF; stroke: #CBD3DB; stroke-width: 1.5; } .esc-svg .zap-l { stroke: #fff; stroke-width: 2.5; }
+.esc-svg .piel { fill: #E8BC94; } .esc-svg .piel-s { fill: #D2A27A; } .esc-svg .pelo { fill: #C9CDD2; }
+.esc-svg .ropa { fill: #2E9C8E; } .esc-svg .ropa-s { fill: #22806F; }
+.esc-svg .bata { fill: #FFFFFF; stroke: #CBD3DB; stroke-width: 1.5; } .esc-svg .bata-s { fill: #E3E8ED; }
+.esc-svg .pantalon { fill: #3B4A5C; } .esc-svg .pantalon-s { fill: #2D394A; } .esc-svg .zapato { fill: #2A2F36; }
+.esc-svg .trazo-amb { fill: none; stroke: var(--amb); stroke-width: 3.5; stroke-linecap: round; } .esc-svg .estrella { fill: var(--amb); }
+.esc-svg .casa { fill: #EEF1F4; stroke: none; } .esc-svg .casa-s { fill: #D9DEE4; } .esc-svg .techo { stroke: #C0453B; stroke-width: 9; }
+.esc-svg .chimenea { fill: #C0453B; } .esc-svg .ventana { fill: #A9D8F2; } .esc-svg .ventana-l { stroke: #fff; stroke-width: 2.5; fill: none; } .esc-svg .puerta { fill: #B98A5E; } .esc-svg .pomo { fill: #7A5634; }
+.esc-svg .reloj { fill: #FFFFFF; stroke: #3B4A5C; stroke-width: 4; } .esc-svg .reloj-s { fill: #000; opacity: .1; } .esc-svg .marca-r { fill: #3B4A5C; } .esc-svg .aguja-r { stroke: #3B4A5C; }
+.esc-svg .tel { fill: #2A2F36; } .esc-svg .tel-p { fill: #C62828; } .esc-svg .tel-t { font-size: 18px; fill: #fff; } .esc-svg .tel-i { fill: #fff; }
+.esc-svg .mano { fill: #E8BC94; stroke: none; } .esc-svg .mano-s { fill: #D2A27A; }
+.esc-svg .hoja { fill: #5AA65D; } .esc-svg .hoja-s { fill: #3F8A45; } .esc-svg .maceta { fill: #C9743F; } .esc-svg .maceta-s { fill: #A95E2F; } .esc-svg .maceta-b { fill: #B5652F; }
+.esc-svg .bolsa { fill: #C79A6B; } .esc-svg .bolsa-s { fill: #A97E52; } .esc-svg .asa { stroke: #7A5634; } .esc-svg .pesa { fill: #3B4A5C; } .esc-svg .bolsa .dia, .esc-svg .pesa + .dia { fill: #fff; font-size: 9px; }
+.esc-svg .baston { stroke: #7A5634; stroke-width: 4; stroke-linecap: round; fill: none; } .esc-svg .panuelo { fill: #FFFFFF; stroke: #CBD3DB; stroke-width: 1.5; } .esc-svg .panuelo-s { fill: #E3E8ED; } .esc-svg .panuelo-l { fill: none; stroke: #CBD3DB; stroke-width: 1.5; }
+.esc-svg .balanza { fill: #EEF1F4; stroke: #CBD3DB; stroke-width: 2; } .esc-svg .balanza-s { fill: #D9DEE4; } .esc-svg .display { fill: #2A2F36; } .esc-svg .display-t { font-size: 11px; font-weight: 900; fill: #8DE5D6; } .esc-svg .pie-b { fill: #D9DEE4; }
+.esc-svg .menos { font-size: 24px; font-weight: 900; fill: var(--azu-ink); }
+.esc-svg .gota { fill: #A9D8F2; stroke: #3E7CB1; stroke-width: 2; }
+.esc-svg .huevo { fill: #FFF8EC; stroke: none; } .esc-svg .huevo-s { fill: #EDE0C8; }
+.esc-svg .pez { fill: #6FA8DC; } .esc-svg .pez-s { fill: #4F8CC4; } .esc-svg .pez-l { fill: none; stroke: #4F8CC4; stroke-width: 2; }
+.esc-svg .pollo { fill: #E3A866; stroke: none; } .esc-svg .pollo-s { fill: #C4864A; } .esc-svg .hueso { fill: #FAF6EE; stroke: #DCD3C2; stroke-width: 1.5; }
+.esc-svg .poroto { fill: #8B4A2B; }
+.esc-svg .caja { fill: #FFFFFF; stroke: none; } .esc-svg .caja-s { fill: #E3E8ED; } .esc-svg .caja-t, .esc-svg .caja-e { fill: #3E7CB1; } .esc-svg .caja-x { font-size: 7px; font-weight: 900; fill: #fff; }
+.esc-svg .manzana { fill: #D63B3B; } .esc-svg .manzana-s { fill: #B12B2B; }
+.esc-svg .lechuga { fill: #7DBF5A; } .esc-svg .lechuga-s { fill: #5FA43F; } .esc-svg .lechuga-l { fill: none; stroke: #4E9A51; stroke-width: 2.5; } .esc-svg .lechuga-c { fill: #B7E08E; }
+.esc-svg .foto { fill: #FFFFFF; stroke: #CBD3DB; stroke-width: 2; } .esc-svg .foto-s { fill: #000; opacity: .08; } .esc-svg .foto-l { fill: none; stroke: var(--acc); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; } .esc-svg .foto-p { fill: var(--amb); }
+.esc-svg .globo { fill: #FFFFFF; stroke: #CBD3DB; stroke-width: 2; } .esc-svg .globo-p { fill: #8E99A4; }
+.esc-svg .dulce { fill: #E86A92; } .esc-svg .dulce-s { fill: #C94F77; } .esc-svg .dulce-l { fill: #F2A7BF; }
+.esc-svg .tarjeta { fill: var(--bg); stroke: var(--rule); stroke-width: 2; }
+.esc-svg .check-c { fill: var(--acc); } .esc-svg .preg-c { fill: var(--amb); }
