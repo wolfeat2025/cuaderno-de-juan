@@ -1056,6 +1056,17 @@ textarea.texto { resize: none; line-height: 1.35; }
 .gr-agregar { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 10px; animation: entra-cap .3s ease-out both; }
 .gr-agregar p { font-size: 17px; font-weight: 800; }
 .gr-botones { display: flex; flex-direction: column; gap: 8px; }
+/* Azúcar: ¿qué hacer si está alta o baja? y barra en la vista (v16) */
+.plegable.ab summary { color: var(--amb-ink); }
+.ab .guia-cuerpo { display: flex; flex-direction: column; gap: 12px; }
+.ab-tarjeta { padding: 12px 14px; border-radius: 16px; }
+.ab-tarjeta.alta { background: var(--amb-soft); color: var(--amb-ink); }
+.ab-tarjeta.baja { background: var(--red-soft); color: var(--red-ink); }
+.ab-tit { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 900; line-height: 1.2; }
+.ab-tit .em { width: 36px; height: 36px; border-radius: 12px; background: var(--sup); display: flex; align-items: center; justify-content: center; font-size: 20px; flex: none; }
+.ab-tit small { display: block; font-size: 14px; font-weight: 800; opacity: .9; }
+.ab-tarjeta ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 16px; font-weight: 700; color: var(--ink); }
+.pq-barra { margin-top: 14px; }
 /* Medir: recordatorio compacto de cuándo medir (v16) */
 .rec-medir { display: flex; flex-direction: column; gap: 6px; padding: 2px 4px; }
 .rec-medir p { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--ink2); line-height: 1.25; }

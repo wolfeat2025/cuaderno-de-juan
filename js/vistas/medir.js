@@ -5,7 +5,7 @@ import { esc, ico, val, porId, claveFecha, deClave, sumarDias, hhmm, fechaCorta,
 import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, mensaje, azucarBaja, valorTexto, detalleMomento, duracion } from '../datos.js';
 import { itemsDelDia, sinSubir, medicionesDeTarea } from '../plan.js';
 import { guiaMaquina } from '../guias.js';
-import { porque, pideExplicar, cumpleRepetir } from './porque.js';
+import { porque, pideExplicar, cumpleRepetir, explicaAltaBaja } from './porque.js';
 
 const AVISO_MEDICO = 'Rangos generales. Valen primero las indicaciones de su médico.';
 const deTipo = (t) => estado.mediciones.filter((m) => m.tipo === t);
@@ -99,6 +99,9 @@ function barra(t, momento, m) {
   const punto = m ? `<span class="punto ${c}" style="left:${pct(Number(m.valor)).toFixed(1)}%" title="${esc(valorTexto(m))}"></span>` : '';
   return `<div class="barra-rango">${tramos}${punto}</div><div class="marcas-rango">${marcas}</div>`;
 }
+
+// La barra de un azúcar ya anotado (para la vista ¿Por qué marcó esto? cuando no hay curva).
+export const barraAzucar = (m) => barra('azucar', m.momento === 'despues' ? 'despues' : 'ayunas', m);
 
 // ---- Peso: cómo va la semana (sin colores: nadie ha indicado un rango) ----
 const kg = (v) => v.toFixed(1).replace('.', ',');
@@ -237,6 +240,7 @@ function formulario(t, tid) {
   return `<div class="envoltura" data-k="form-${t}">
     <a class="btn quieto izq" href="#medir">${ico('left')}Volver a Medir</a>
     ${guiaMaquina(t)}
+    ${t === 'azucar' ? explicaAltaBaja() : ''}
     <div class="numeros">${campos}</div>
     ${pulso}
     ${momento}

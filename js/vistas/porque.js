@@ -3,7 +3,8 @@
 import { estado, acciones, pintar, ir, esJuan } from '../nucleo.js';
 import * as db from '../db.js';
 import { esc, ico, hhmm, mayus, claveFecha } from '../util.js';
-import { clasificar, azucarBaja, mensaje, detalleMomento } from '../datos.js';
+import { clasificar, azucarBaja, detalleMomento, duracion } from '../datos.js';
+import { barraAzucar } from './medir.js';
 import { comidaId } from '../plan.js';
 import { catalogoListo, alimentoPorId, cgDe } from '../glucemica.js';
 import { FACTOR, nombreCorto, emojiDe } from './comidas.js';
@@ -91,10 +92,9 @@ function platoDe(reg) {
 }
 const enComida = (reg) => ART[reg.comida] || 'la comida';
 
-// Hasta 2 causas probables, ordenadas: medido antes de las 2 horas, el alimento que más sube, plato grande.
-function causas(m, minC, plato) {
+// Hasta 2 causas probables: el alimento que más sube y plato grande. (Medir antes de las 2 horas ya lo dice "¿Qué significa?").
+function causas(m, plato) {
   const c = [];
-  if (typeof minC === 'number' && minC >= 0 && minC < DOS_HORAS[0]) c.push(['⏱', 'Se midió antes de las 2 horas', minC < 60 ? 'El azúcar todavía venía subiendo' : 'El azúcar todavía venía bajando']);
   if (plato && plato.total > 10) {
     const t = plato.top, doble = (t.it.m || 1) >= 2;
     c.push([emojiDe(t.a), `${mayus(nombreCorto(t.a))} en ${enComida(plato.reg)}`, doble ? 'Porción doble: sube más el azúcar' : t.a.ig >= 70 ? 'Sube el azúcar rápido' : 'Es lo que más sube el azúcar del plato']);
@@ -146,13 +146,14 @@ function curva(m, ini, lista, juan) {
   }
   const fin = pts[pts.length - 1], cf = color(fin[2]);
   let falta = '';
-  if (ini && ult < DOS_HORAS[1] && cf === 'amarillo') {
+  // Lo que falta (punteado hasta las 2 horas): si sigue alta, o si se midió antes de las 2 horas.
+  if (ini && cf !== 'rojo' && (ult < DOS_HORAS[0] || (ult < DOS_HORAS[1] && cf === 'amarillo'))) {
     const fx = X(Math.min(span - 4, DOS_HORAS[1] + 8)), fy = Y(Math.max(110, Number(fin[2].valor) - 65)), dx = fx - fin[0];
     falta = `<path class="pq-falta" d="M${f1(fin[0])} ${f1(fin[1])} C${f1(fin[0] + dx / 2)} ${f1(fin[1] + (fy - fin[1]) * 0.4)} ${f1(fx - dx / 3)} ${f1(fy)} ${f1(fx)} ${f1(fy)}"/>`;
   }
   const h = juan ? 116 : 132;
   let svg = `<svg class="pq-curva${juan ? ' pq-juan' : ''}" viewBox="0 0 320 ${h}" role="img" aria-label="Curva del azúcar${ini ? ' después de comer' : ''}">`;
-  if (ini) svg += `<rect class="pq-franja" x="${f1(X(DOS_HORAS[0]))}" y="12" width="${f1(X(DOS_HORAS[1]) - X(DOS_HORAS[0]))}" height="94" rx="10"/><text class="pq-franja-t" x="${f1((X(DOS_HORAS[0]) + X(DOS_HORAS[1])) / 2)}" y="26" text-anchor="middle">2 horas</text>`;
+  if (ini) svg += `<rect class="pq-franja" x="${f1(X(DOS_HORAS[0]))}" y="12" width="${f1(X(DOS_HORAS[1]) - X(DOS_HORAS[0]))}" height="94" rx="10"/><text class="pq-franja-t" x="${f1((X(DOS_HORAS[0]) + X(DOS_HORAS[1])) / 2)}" y="26" text-anchor="middle">2 horas</text><text class="pq-franja-t" x="${f1((X(DOS_HORAS[0]) + X(DOS_HORAS[1])) / 2)}" y="100" text-anchor="middle">${hm(ini.min + 120)}</text>`;
   if (lim !== null && !juan) svg += `<line class="pq-lim" x1="14" y1="${f1(Y(lim))}" x2="306" y2="${f1(Y(lim))}"/><text x="14" y="${f1(Y(lim) - 6)}">${lim}</text>`;
   if (anclas.length > 1) svg += `<path class="pq-linea ${cf} pq-dibuja" d="${suave(anclas, !!ini)}"/>`;
   svg += falta;
@@ -169,73 +170,111 @@ function curva(m, ini, lista, juan) {
 
 const fila = (cls, c) => `<div class="${cls}"><span class="em${c[3] ? ' ' + c[3] : ''}">${c[0]}</span><p>${esc(c[1])}${c[2] ? `<small>${esc(c[2])}</small>` : ''}</p></div>`;
 
-// Botón "Medir otra vez": +30 min (+15 si está bajo). Al tocarlo queda como tarea en la rutina del día.
-function botonOtraVez(m, c) {
+// Botón "Medir otra vez" a la hora `obj` (minutos del día). Al tocarlo queda como tarea en la rutina de hoy.
+function botonOtraVez(m, obj, texto) {
   const rep = Object.keys(estado.tomas).map((id) => Object.assign({ id }, estado.tomas[id])).find((t) => t.clase === 'repetir' && t.base === m.id);
   if (rep) return `<div class="pq-listo" role="status"><span class="ok">${ico('check')}</span><p>Listo, quedó en la rutina a las ${esc(rep.hora)}<small>🧼 Antes de medir: lavar y secar el dedo</small></p></div>
     <button class="pq-deshacer" data-a="deshacerOtraVez" data-id="${esc(rep.id)}">Deshacer</button>`;
   const ahora = minDia(Date.now());
-  let obj = minDia(m.ts) + (c === 'rojo' ? 15 : 30);
   if (obj < ahora + 5) obj = Math.ceil((ahora + 5) / 5) * 5;
   if (obj > 23 * 60 + 55) return '';
-  return `<button class="btn pri" data-a="medirOtraVez" data-id="${esc(m.id)}" data-v="${hm(obj)}">${ico('clock')}Medir otra vez a las ${hm(obj)}</button>`;
+  return `<button class="btn pri" data-a="medirOtraVez" data-id="${esc(m.id)}" data-v="${hm(obj)}">${ico('clock')}${texto} ${hm(obj)}</button>`;
+}
+
+// La situación de ahora, en palabras de casa: qué significa el número y qué hacer (con la hora del botón, si hace falta).
+// Las metas salen de config.rangos; lo de azúcar baja es lo mismo que dice el resultado de Medir.
+function situacion(m, c, minC, ini, bajo, pico) {
+  const comer = m.tarea === 'glu-almuerzo' || (comidaDe(m) || {}).comida === 'almuerzo' ? 'almorzar' : 'comer';
+  const r = rz(), v = Number(m.valor), lim = num(r.despMax), ayMin = num(r.ayMin), ayMax = num(r.ayMax);
+  const nada = ['🙂', 'Nada más por ahora', 'Seguir con la rutina de siempre'];
+  const yo = minDia(m.ts), despues = m.momento === 'despues', alto = lim !== null && v >= lim;
+  if (c === 'rojo') return { frase: 'Azúcar baja', sig: ['⚠️', `Bajo ${num(r.rojoBajo)}: hay que actuar ahora`, 'Puede dar temblor, sudor, mareo o confusión'], hacer: ['🧃', 'Medio vaso de jugo ahora', 'Medir otra vez en 15 minutos y avisar'], hora: yo + 15, boton: 'Medir otra vez a las' };
+  if (despues && typeof minC === 'number' && minC < DOS_HORAS[0] && ini) {
+    const h2 = ini.min + 120;
+    return { frase: alto ? `Subió después de ${comer}` : 'Está bien',
+      sig: alto ? ['📈', `Sobre ${lim}, pero todavía no son las 2 horas`, 'Después de comer sube y luego baja sola'] : ['📈', 'Va en la subida normal', `A los ${duracion(minC)} todavía no es la medición que cuenta`],
+      hacer: ['⏱', 'Volver a medir a las 2 horas', `Es la que cuenta: a las ${hm(h2)}, desde que empezó a ${comer}`], hora: h2, boton: 'Medir a las' };
+  }
+  if (despues) {
+    const enDos = typeof minC === 'number' && minC <= DOS_HORAS[1] + 15;
+    if (bajo) { const tip = consejo(pico); return { frase: 'Bajó. Está bien', sig: ['✓', 'Así se ve una subida normal', 'Subió después de comer y bajó sola', 'ok'], hacer: tip || nada, etq: tip ? '¿Para la próxima?' : '' }; }
+    if (alto) return { frase: enDos ? 'Sigue alta' : `Subió después de ${comer}`, sig: ['📈', enDos ? `Sobre ${lim} a las 2 horas` : `Sobre ${lim} después de comer`, 'Más alto que la meta'], hacer: ['⏱', 'Volver a medir en 30 minutos', 'Si sigue alta, comentarlo en el próximo control'], hora: yo + 30, boton: 'Medir otra vez a las' };
+    if (c === 'verde') return { frase: 'Está bien', sig: ['✓', enDos ? 'En la meta de las 2 horas' : 'En la meta de después de comer', `Bajo ${lim}`, 'ok'], hacer: nada };
+  }
+  const cuando = m.momento === 'antes' ? 'antes de comer' : 'en ayunas';
+  if (c === 'verde') return { frase: 'Está bien', sig: ['✓', `En la meta ${cuando === 'en ayunas' ? 'de ayunas' : cuando}`, `Entre ${ayMin} y ${ayMax}`, 'ok'], hacer: nada };
+  const bajito = ayMin !== null && v < ayMin;
+  return { frase: bajito ? 'Un poco bajo' : 'Un poco alto', sig: [bajito ? '📉' : '📈', bajito ? `Un poco bajo ${cuando}` : `Un poco alto ${cuando}`, `La meta ${cuando} es de ${ayMin} a ${ayMax}`],
+    hacer: ['⏱', 'Medir otra vez más tarde', 'y comentarlo en el próximo control'] };
 }
 
 export function porque(id) {
   const juan = esJuan(), m = estado.mediciones.find((x) => x.id === id && x.tipo === 'azucar');
   const volver = `<a class="btn quieto izq" href="${juan ? '#hoy' : '#medir/azucar'}">${ico('left')}${juan ? 'Volver' : 'Volver a Azúcar'}</a>`;
   if (!m) return `<div class="envoltura"><p class="vacio-txt">Esta medición se borró.</p>${volver}</div>`;
-  const r = rz(), v = Number(m.valor), c = color(m), p = previa(m), lim = num(r.despMax);
+  const v = Number(m.valor), c = color(m), p = previa(m);
   const ini = inicioDe(m), lista = ventana(m, ini);
   const minC = typeof m.minComida === 'number' ? m.minComida : ini && ini.real ? minDia(m.ts) - ini.min : null;
   const antes = lista.filter((x) => x.ts < m.ts), pico = antes.reduce((b, x) => (Number(x.valor) > Number(b.valor) ? x : b), m);
   const subio = !!p && v - Number(p.valor) >= SALTO;
   const bajo = c === 'verde' && (Number(pico.valor) - v >= SALTO || (!!p && Number(p.valor) - v >= SALTO));
   const baja = !!antes.length && Number(antes[antes.length - 1].valor) > v;
-  const comer = m.tarea === 'glu-almuerzo' || (comidaDe(m) || {}).comida === 'almuerzo' ? 'almorzar' : 'comer';
-  const alto = c === 'amarillo' && num(r.ayMin) !== null && v < num(r.ayMin) ? 'Un poco bajo' : 'Un poco alto';
-  let frase;
-  if (juan) frase = c === 'rojo' ? 'Azúcar baja' : c === 'verde' ? (baja ? 'Va bajando ✓' : 'Está bien ✓') : alto;
-  else if (c === 'rojo') frase = 'Azúcar baja';
-  else if (bajo) frase = 'Bajó. Está bien';
-  else if (lim !== null && v >= lim) frase = m.momento === 'despues' ? `Subió después de ${comer}` : 'Está alto';
-  else if (subio) frase = 'Subió rápido';
-  else if (!!p && Number(p.valor) - v >= SALTO) frase = 'Va bajando';
-  else frase = c === 'verde' ? 'Está bien' : alto;
-  const esc_ = ESCALA[c];
-  const valor = `<div class="pq-valor"><span class="pq-big ${c}">${esc(String(m.valor))}</span><p>${frase}<small>Medido a las ${hhmm(new Date(m.ts))}</small><span class="chip ${esc_[0]}">${esc_[1]}</span></p></div>`;
-  const grafico = curva(m, ini, lista, juan);
-  const aviso = c === 'rojo' ? `<p class="pq-aviso" role="alert">${esc(mensaje(m, estado.config.rangos)[1])}</p>` : '';
-  // Igual que en el resultado de Medir: con azúcar baja o si se siente mal, el acceso al 131 queda a la vista.
+  const s = situacion(m, c, minC, ini, bajo, pico);
+  const frase = juan ? (c === 'rojo' ? 'Azúcar baja' : c === 'verde' ? (baja ? 'Va bajando ✓' : 'Está bien ✓') : s.frase) : s.frase;
+  const det = detalleMomento(m), esc_ = ESCALA[c];
+  const valor = `<div class="pq-valor"><span class="pq-big ${c}">${esc(String(m.valor))}</span><p>${esc(frase)}<small>Medido a las ${hhmm(new Date(m.ts))}${det ? ' · ' + esc(det) : ''}</small><span class="chip ${esc_[0]}">${esc_[1]}</span></p></div>`;
+  // Con comida: la curva. Sin comida (ayunas, antes de comer): la misma barra de "¿Qué está bien?" de Medir.
+  const grafico = curva(m, ini, lista, juan) || `<div class="pq-barra">${barraAzucar(m)}</div>`;
   const serio = c === 'rojo' || m.animo === 'Mal';
   const al131 = serio ? `<div class="alerta131"><p>Si tiene dolor en el pecho, falta de aire o se desmaya, llamen al 131.</p><a class="btn rojo" href="tel:131">${ico('phone')}Llamar al 131</a></div>` : '';
-  const det = detalleMomento(m), cab = det ? `<p class="pq-cab">${esc(mayus(det))}</p>` : '';
+  const hoy = m.fecha === claveFecha(new Date()) && azucares(m.fecha).filter((x) => x.ts > m.ts).length === 0;
+  const boton = hoy && typeof s.hora === 'number' ? botonOtraVez(m, s.hora, s.boton) : '';
 
   if (juan) {
-    const tip = c === 'rojo' ? null : m.momento === 'despues' ? ['🚶', 'Caminar un poco después de comer', 'si el equipo de salud lo autorizó'] : null;
-    return `<div class="envoltura pq" data-k="pq-${esc(id)}">${volver}${cab}<div class="panel">${valor}${grafico}</div>${aviso}${al131}${tip ? fila('pq-consejo', tip) : ''}</div>`;
+    const tip = c === 'rojo' ? ['🧃', 'Medio vaso de jugo ahora', 'y avisar a la familia'] : s.boton === 'Medir a las' ? ['⏱', `Medir a las ${hm(s.hora)}`, 'Esa es la medición que cuenta']
+      : m.momento === 'despues' ? ['🚶', 'Caminar un poco después de comer', 'si el equipo de salud lo autorizó'] : null;
+    return `<div class="envoltura pq" data-k="pq-${esc(id)}">${volver}<div class="panel">${valor}${grafico}</div>${al131}${tip ? fila('pq-consejo', tip) : ''}</div>`;
   }
 
-  // Familia: la causa probable si hay que estar atentos; si ya bajó, un ✓ y un consejo para la próxima.
-  const atento = c !== 'verde' || subio;
-  const ultimaDelDia = azucares(m.fecha).filter((x) => x.ts > m.ts).length === 0;
-  let porQue = '', despues = '';
-  if (atento && c !== 'rojo') {
-    const cs = causas(m, minC, platoDe(comidaDe(m)));
+  // Familia: ¿Qué significa? · ¿Por qué? (solo si subió) · ¿Qué hacer? — una fila cada uno y un solo botón.
+  let porQue = '';
+  if (m.momento === 'despues' && c !== 'rojo' && !bajo && (c !== 'verde' || subio)) {
+    const cs = causas(m, platoDe(comidaDe(m)));
     if (cs.length) porQue = `<div class="pq-porque"><p class="rotulo">¿Por qué? · probable</p>${cs.map((x) => fila('pq-causa', x)).join('')}</div>`;
-  } else if (bajo) {
-    const cuando = m.momento !== 'despues' || typeof minC !== 'number' ? '' : minC < DOS_HORAS[0] ? ', antes de las 2 horas' : minC <= DOS_HORAS[1] ? ', a las 2 horas' : '';
-    porQue = `<div class="pq-porque">${fila('pq-causa', ['✓', 'Bajó solo' + cuando, m.momento === 'despues' ? 'Así se ve una subida normal después de comer' : '', 'ok'])}</div>`;
-    const tip = consejo(pico);
-    if (tip) despues = `<p class="pq-etq">Para la próxima</p>${fila('pq-consejo', tip)}`;
   }
-  const boton = atento && ultimaDelDia && m.fecha === claveFecha(new Date()) ? botonOtraVez(m, c) : '';
-  return `<div class="envoltura pq" data-k="pq-${esc(id)}">${volver}${cab}
-    <div class="panel">${valor}${grafico}${porQue}</div>
-    ${aviso}${al131}${boton}${despues}
+  return `<div class="envoltura pq" data-k="pq-${esc(id)}">${volver}
+    <div class="panel">${valor}${grafico}
+      <div class="pq-porque"><p class="rotulo">¿Qué significa?</p>${fila('pq-causa', s.sig)}</div>
+      ${porQue}
+      <div class="pq-porque"><p class="rotulo">${s.etq || '¿Qué hacer?'}</p>${fila('pq-causa', s.hacer)}</div>
+    </div>
+    ${al131}${boton}
+    ${explicaAltaBaja()}
     <p class="nota">Causa probable según lo anotado; no es un diagnóstico. Valen primero las indicaciones del médico.</p>
     <button class="btn quieto" data-a="borrarMed" data-id="${esc(m.id)}">${ico('trash')}Borrar esta medición</button>
   </div>`;
+}
+
+// Desplegable "¿Qué hacer si está alta o baja?" (en Medir · Azúcar, junto a "Cómo usar nuestra máquina").
+// Información general (ADA y CDC); los límites salen de config.rangos.
+export function explicaAltaBaja() {
+  const r = rz(), lim = num(r.despMax), ayMax = num(r.ayMax), bajo = num(r.rojoBajo);
+  const tarjeta = (cls, em, titulo, sub, filas) => `<div class="ab-tarjeta ${cls}"><p class="ab-tit"><span class="em">${em}</span><span>${titulo}<small>${sub}</small></span></p>
+    <ul>${filas.map(([k, t]) => `<li><b>${k}</b>${t}</li>`).join('')}</ul></div>`;
+  const altaSub = [lim !== null ? `${lim} o más a las 2 horas` : '', ayMax !== null ? `más de ${ayMax} en ayunas` : ''].filter(Boolean).join(' · ');
+  return `<details class="plegable guia-maq ab"><summary>${ico('alert')}¿Qué hacer si está alta o baja?${ico('down', 'giro')}</summary>
+    <div class="guia-cuerpo">
+      <p class="sub">Después de comer el azúcar sube y baja sola en unas 2 horas. Por eso la medición que cuenta es la de las 2 horas, desde que empezó a comer.</p>
+      ${tarjeta('alta', '📈', 'Alta', altaSub, [
+        ['Señales: ', 'mucha sed, orinar seguido, cansancio. Muchas veces no se siente nada.'],
+        ['Qué hacer: ', 'volver a medir en 30 minutos y anotar qué comió.'],
+        ['Si se repite: ', 'comentarlo en el próximo control. Si se siente mal, llamar al médico.']])}
+      ${tarjeta('baja', '📉', 'Baja', bajo !== null ? `menos de ${bajo}` : '', [
+        ['Señales: ', 'temblor, sudor, mareo, confusión o mucha hambre.'],
+        ['Qué hacer: ', 'medio vaso de jugo o bebida con azúcar. Medir otra vez en 15 minutos; si sigue baja, repetir y avisar.'],
+        ['Si no puede tragar o se desmaya: ', 'nada por la boca y llamar al 131.']])}
+      <p class="nota">Información general (ADA y CDC). Valen primero las indicaciones del médico.</p>
+    </div></details>`;
 }
 
 acciones.verAzucar = (d) => ir('medir/azucar/porque/' + d.id);
