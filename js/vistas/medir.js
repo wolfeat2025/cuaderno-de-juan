@@ -5,6 +5,7 @@ import { esc, ico, val, porId, claveFecha, deClave, sumarDias, hhmm, fechaCorta,
 import { TIPOS, ORDEN_TIPOS, ETIQUETA, TAREAS, clasificar, mensaje, azucarBaja, valorTexto, detalleMomento, duracion } from '../datos.js';
 import { itemsDelDia, sinSubir, medicionesDeTarea } from '../plan.js';
 import { guiaMaquina } from '../guias.js';
+import { porque, pideExplicar, cumpleRepetir } from './porque.js';
 
 const AVISO_MEDICO = 'Rangos generales. Valen primero las indicaciones de su médico.';
 const deTipo = (t) => estado.mediciones.filter((m) => m.tipo === t);
@@ -24,19 +25,12 @@ function chispa(t) {
 
 // Recordatorio breve de la rutina real de cuatro mediciones, leyendo los horarios configurados.
 function recordatorioMedir() {
-  return `<div class="panel cuidado recordatorio-medir" role="region" aria-label="Recordatorio de mediciones">
-    <div class="rec-fila">
-      <span class="rec-iconos" aria-hidden="true">${ico('sun')}${ico('soup')}</span>
-      <p class="tit">Azúcar: en ayunas y 2 h después de empezar a almorzar.</p>
-    </div>
-    <div class="rec-fila">
-      <span class="rec-iconos" aria-hidden="true">${ico('sun')}${ico('moon')}</span>
-      <p class="tit">Presión y pulso: mañana y noche.</p>
-    </div>
-    <div class="rec-fila">
-      <span class="rec-iconos" aria-hidden="true">${ico('sun')}${ico('balanza')}</span>
-      <p class="tit">Peso: cada mañana, antes de desayunar.</p>
-    </div>
+  // Compacto: una línea por medición, con el mismo ícono que su tarjeta (la rutina de abajo trae las horas).
+  const fila = (t, txt) => `<p><span class="ic-rec t-${t}" aria-hidden="true">${ico(TIPOS[t].icono)}</span><span><b>${TIPOS[t].nombre}</b> ${txt}</span></p>`;
+  return `<div class="rec-medir" role="region" aria-label="Cuándo medir">
+    ${fila('azucar', 'en ayunas y 2 h después de empezar a almorzar')}
+    ${fila('presion', 'y pulso: mañana y noche')}
+    ${fila('peso', 'cada mañana, antes de desayunar')}
   </div>`;
 }
 
@@ -191,7 +185,7 @@ function historial(t) {
     const c = clasificar(m, estado.config.rangos), abierta = estado.ui.medAbierta === m.id;
     const cuando = t === 'azucar' ? ({ despues: 'después', antes: 'antes de comer' }[m.momento] || 'ayunas') : '';
     const extra = [m.nota, sinSubir(m) ? 'sin subir' : ''].filter(Boolean).map(esc).join(' · ');
-    h += `<div class="reg compacto" data-k="${m.id}"><div class="toca-area" data-a="abrirMed" data-id="${m.id}" role="button" tabindex="0">
+    h += `<div class="reg compacto" data-k="${m.id}"><div class="toca-area" data-a="${t === 'azucar' ? 'verAzucar' : 'abrirMed'}" data-id="${m.id}" role="button" tabindex="0">
         <span class="h">${hhmm(new Date(m.ts))}</span><span class="luz ${c}" aria-label="${ETIQUETA[c]}"></span><span class="v ${c}">${valorTexto(m)}</span><span class="quien">${cuando ? cuando + ' · ' : ''}${esc(m.quien)}</span></div>
       ${extra ? `<p class="sub">${extra}</p>` : ''}
       ${abierta ? `<button class="btn quieto" data-a="borrarMed" data-id="${m.id}">${ico('trash')}Borrar esta medición</button>` : ''}</div>`;
@@ -224,7 +218,7 @@ function formulario(t, tid) {
     // Solo se reutiliza una hora de inicio de almuerzo ya confirmada hoy en Medir; nunca la hora de consumo de Comidas.
     if (ctx === 'almuerzo' && u.inicio === undefined) {
       const hoy = claveFecha(estado.ahora);
-      const prev = estado.mediciones.find((m) => m.fecha === hoy && m.tipo === 'azucar' && m.tarea === 'glu-almuerzo' && HORA_OK.test(m.inicioComida || ''));
+      const prev = estado.mediciones.find((m) => m.fecha === hoy && m.tipo === 'azucar' && (m.tarea === 'glu-almuerzo' || m.tarea === 'glu-otra') && HORA_OK.test(m.inicioComida || ''));
       u.inicio = prev ? prev.inicioComida : '';
     }
     let van = '';
@@ -335,6 +329,7 @@ function resumen() {
 
 export function render(args) {
   if (args[0] === 'resumen') return resumen();
+  if (args[0] === 'azucar' && args[1] === 'porque') return porque(args[2]);
   if (TIPOS[args[0]]) return args[1] === 'listo' ? resultado(args[0], args[2]) : formulario(args[0], args[1] === 't' ? args[2] : '');
   return principal();
 }
@@ -396,6 +391,8 @@ acciones.guardarMedicion = (d) => {
       if (ini.getTime() > ts) return falla('La hora en que empezó a comer no puede ser después de la medición.', 'minicio');
       m.inicioComida = inicio; m.minComida = Math.round((ts - ini.getTime()) / 60000);
     }
+    // "Medir otra vez": la lectura cumple esa tarea (entrando desde ella o anotada cerca de su hora).
+    if (d.tid === 'glu-otra' || (m.momento === 'despues' && cumpleRepetir(m.fecha, ts))) m.tarea = 'glu-otra';
   }
   if (u.animo) m.animo = u.animo;
   const nota = val('mnota'); if (nota) m.nota = nota;
@@ -410,7 +407,8 @@ acciones.guardarMedicion = (d) => {
   db.poner('mediciones', id, m);
   u.errorMedir = ''; u.animo = ''; u.momento = ''; u.cuando = ''; u.inicio = undefined; u.otraHora = false;
   aviso(`${T.nombre} guardada`, () => { db.borrar('mediciones', id); if (idPulso) db.borrar('mediciones', idPulso); ir('medir/' + t); });
-  ir(`medir/${t}/listo/${id}`);
+  // Azúcar muy alta, baja o con un cambio fuerte: se abre "¿Por qué marcó esto?".
+  ir(t === 'azucar' && pideExplicar(m) ? `medir/azucar/porque/${id}` : `medir/${t}/listo/${id}`);
 };
 acciones.compartirResumen = async () => {
   const texto = textoResumen();

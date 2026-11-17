@@ -63,6 +63,7 @@ export function itemsDelDia(fecha, f) {
   Object.keys(src.tomas).forEach((id) => {
     const t = src.tomas[id];
     if (t.fecha !== fecha || vistos[id]) return;
+    if (t.clase === 'repetir') { if (/^\d\d:\d\d$/.test(t.hora || '')) items.push({ tipo: 'tarea', hora: t.hora, tid: 'glu-otra', id }); return; }
     if (t.clase === 'comida') { const info = INFO_COMIDA[t.comida]; if (info) items.push({ tipo: 'comida', hora: hhmm(new Date(t.ts)), id, k: t.comida, nombre: info.nombre, icono: info.icono, opcional: !!info.opcional, texto: t.previsto || '', porciones: '' }); }
     else items.push({ tipo: 'med', hora: t.hora || hhmm(new Date(t.ts)), id, fueraDePlan: true, r: { id: t.remedioId, nombre: t.nombre, dosis: t.dosis || '', paraQue: '' } });
   });

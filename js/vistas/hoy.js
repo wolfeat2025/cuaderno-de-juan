@@ -55,7 +55,7 @@ function filaTarea(it, fecha, modo) {
   const T = TAREAS[it.tid], ms = medicionesDeTarea(fecha, it.tid), ult = ms[ms.length - 1];
   if (ult) {
     const c = clasificar(ult, estado.config.rangos);
-    return fila('medir hecho', 'tarea-' + it.tid, it.hora, `<a class="tarjeta-fila" href="#medir/${T.tipo}"><span class="ic hecho">${ico('check')}</span>
+    return fila('medir hecho', 'tarea-' + it.tid, it.hora, `<a class="tarjeta-fila" href="#medir/${T.tipo === 'azucar' ? 'azucar/porque/' + ult.id : T.tipo}"><span class="ic hecho">${ico('check')}</span>
       <div class="txt"><p class="tit">${T.nombre}</p><p class="firma"><span class="v ${c}">${valorTexto(ult)}</span> · ${ETIQUETA[c]} · ${hhmm(new Date(ult.ts))} · ${esc(ult.quien)}${ms.length > 1 ? ` · ${ms.length} lecturas` : ''}${pend(ult)}</p></div>${ico('right', 'flecha')}</a>`);
   }
   return fila('medir', 'tarea-' + it.tid, it.hora, `<div class="tarjeta-fila"><span class="ic medir">${ico(TIPOS[T.tipo].icono)}</span>

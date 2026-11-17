@@ -1,13 +1,13 @@
 // Service worker: deja la app guardada en el celular para que abra aunque no haya señal.
 // Los datos los guarda Firestore por su cuenta (caché sin conexión).
-const VERSION = 'cuaderno-v14';
+const VERSION = 'cuaderno-v16';
 const ARCHIVOS = [
   './', 'index.html', 'manifest.json', 'css/estilos.css',
   'js/visuales.js', 'js/recorridos.js', 'js/escenas.js', 'js/vistas/recuperacion.js',
   'audios/juan/v5/c1.mp3', 'audios/juan/v5/c2.mp3', 'audios/juan/v5/c3.mp3', 'audios/juan/v5/c4.mp3', 'audios/juan/v5/c5.mp3', 'audios/juan/v5/c6.mp3',
   'js/vistas/nutricion.js',
   'js/app.js', 'js/config.js', 'js/datos.js', 'js/db.js', 'js/guias.js', 'js/nucleo.js', 'js/plan.js', 'js/util.js', 'js/alimentos.js', 'js/glucemica.js', 'datos/alimentos.json', 'js/vistas/consulta-comida.js',
-  'js/vistas/hoy.js', 'js/vistas/portada.js', 'js/vistas/corazon.js', 'js/vistas/medir.js', 'js/vistas/comidas.js', 'js/vistas/agenda.js', 'js/vistas/cuidados.js', 'js/vistas/emergencia.js', 'js/vistas/ajustes.js', 'js/vistas/resumen.js',
+  'js/vistas/hoy.js', 'js/vistas/portada.js', 'js/vistas/corazon.js', 'js/vistas/medir.js', 'js/vistas/porque.js', 'js/vistas/plato-dia.js', 'js/vistas/comidas.js', 'js/vistas/agenda.js', 'js/vistas/cuidados.js', 'js/vistas/emergencia.js', 'js/vistas/ajustes.js', 'js/vistas/resumen.js',
   'iconos/apple-touch-icon.png', 'iconos/icon-192.png', 'fuentes/nunito-400.woff2', 'fuentes/nunito-700.woff2', 'fuentes/nunito-800.woff2',
   'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js',
   'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js',

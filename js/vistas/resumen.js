@@ -94,7 +94,7 @@ function panel() {
 
   // Lo más reciente
   const eventos = [];
-  Object.keys(d.tomas).forEach((id) => { const t = d.tomas[id]; eventos.push(t.clase === 'comida'
+  Object.keys(d.tomas).forEach((id) => { const t = d.tomas[id]; if (t.clase === 'repetir') return; eventos.push(t.clase === 'comida'
     ? { ts: t.ts, ic: 'comida', icono: 'food', tit: `${(INFO_COMIDA[t.comida] && INFO_COMIDA[t.comida].nombre) || mayus(t.comida)}: ${(COMIO[t.comio] || '').toLowerCase()}${t.nota ? ' (' + t.nota + ')' : ''}`, quien: t.quien }
     : { ts: t.ts, ic: '', icono: 'pill', tit: t.nombre, quien: t.quien }); });
   d.mediciones.forEach((m) => eventos.push({ ts: m.ts, ic: 'medir', icono: TIPOS[m.tipo].icono, tit: `${TIPOS[m.tipo].nombre} ${valorTexto(m)}`, quien: m.quien, c: clasificar(m, estado.config.rangos) }));

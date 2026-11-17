@@ -42,7 +42,7 @@ function bloqueUltimosRegistros(hoy, ayer) {
       const c = m ? clasificar(m, R) : 'neutro';
       const fecha = !m ? 'Todavía sin registro' : (m.fecha === hoy ? 'Hoy' : m.fecha === ayer ? 'Ayer' : fechaCorta(deClave(m.fecha))) + ' · ' + hhmm(new Date(m.ts));
       const contexto = tipo === 'azucar' && m ? ({ayunas:'En ayunas',despues:'Después de comer',antes:'Antes de comer'}[m.momento] || 'Contexto en Medir') : '';
-      return `<a class="juan-lectura" href="#medir/${tipo}" data-k="juan-ultima-${tipo}">
+      return `<a class="juan-lectura" href="#medir/${tipo === 'azucar' && m ? 'azucar/porque/' + m.id : tipo}" data-k="juan-ultima-${tipo}">
         <span class="rotulo-item">${ico(TIPOS[tipo].icono)}${TIPOS[tipo].nombre}</span>
         <span class="v-grande ${c}">${m ? valorTexto(m) : '—'}${m && tipo === 'azucar' ? '<small> mg/dL</small>' : m && tipo === 'pulso' ? '<small> lpm</small>' : m && tipo === 'oxigeno' ? '<small> %</small>' : ''}</span>
         <span class="estado ${c}">${m ? ETIQUETA[c] : 'Sin datos'}</span>

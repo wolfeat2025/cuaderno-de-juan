@@ -9,25 +9,28 @@ import { consultarComida } from '../alimentos.js';
 import { resultadoConsulta } from './consulta-comida.js';
 import { infografia, detenerRecorridos } from '../visuales.js';
 import * as nutricion from './nutricion.js';
-import { cargarCatalogo, catalogoListo, interpretar, alimentoPorId, cgDe, nivelComida, nivelDia, NIVEL_TXT } from '../glucemica.js';
-import { clasificar } from '../datos.js';
+import { cargarCatalogo, catalogoListo, interpretar, alimentoPorId, cgDe, nivelComida, NIVEL_TXT } from '../glucemica.js';
+import { platoDelDia, guiaRapida } from './plato-dia.js';
 
 // ---- Carga glucémica: el catálogo se carga una vez; al llegar, se repinta. ----
 cargarCatalogo().then(() => { try { pintar(); } catch (e) { /* aún no hay pantalla */ } });
-const FACTOR = { todo: 1, parte: 0.5, nada: 0 };
+export const FACTOR = { todo: 1, parte: 0.5, nada: 0 };
 const r1 = (n) => Math.round(n * 10) / 10;
 // Alimentos reconocidos en un texto, conservando la porción ya elegida si el alimento sigue ahí.
+// "2 platos de arroz" → 2 · "media taza de arroz" → ½ (solo al reconocer por primera vez).
+function cantidadDicha(t) { const s = String(t || '').trim().toLowerCase(); return /^(2|dos|doble)(\s|$)/.test(s) ? 2 : /^(media|medio|1\/2|½|mitad)(\s|$)/.test(s) ? 0.5 : 1; }
+export const nombreCorto = (a) => a.n.replace(/ cocid[oa]s?$/i, '');
 function calcularItems(texto, previos) {
   const usados = {};
   return interpretar(texto).map((x) => {
     if (!x.a) return { t: x.texto, id: '', pi: 0 };
     const prev = (previos || []).find((p) => p.id === x.a.id && !usados[p.id]);
     usados[x.a.id] = 1;
-    return { t: x.texto, id: x.a.id, pi: prev ? Math.min(prev.pi || 0, x.a.p.length - 1) : 0 };
+    return { t: x.texto, id: x.a.id, pi: prev ? Math.min(prev.pi || 0, x.a.p.length - 1) : 0, m: prev && prev.m ? prev.m : cantidadDicha(x.texto) };
   });
 }
 function totalCG(items, comio) {
-  return (items || []).reduce((s, it) => { const a = it.id && alimentoPorId(it.id); return a ? s + cgDe(a, a.p[it.pi || 0][1]) : s; }, 0) * (FACTOR[comio] === undefined ? 1 : FACTOR[comio]);
+  return (items || []).reduce((s, it) => { const a = it.id && alimentoPorId(it.id); return a ? s + cgDe(a, gramosDe(a, it)) : s; }, 0) * (FACTOR[comio] === undefined ? 1 : FACTOR[comio]);
 }
 // Carga de un registro guardado: usa lo elegido al anotar; los antiguos se interpretan con la porción habitual.
 function cgRegistro(reg) {
@@ -38,34 +41,58 @@ function cgRegistro(reg) {
   return totalCG(items, reg.comio);
 }
 const medidorCG = (cg, chico) => { const n = nivelComida(cg); return `<span class="cg-chip ${n}${chico ? ' chico' : ''}"><span class="cg-barras"><i></i><i></i><i></i></span>${NIVEL_TXT[n]} para el azúcar</span>`; };
+// Porción: la medida base del alimento × ½ · 1 · 2.
+const MULT = [[0.5, '½'], [1, '1'], [2, '2']];
+function gramosDe(a, it) { return a.p[it.pi || 0][1] * (it.m || 1); }
+function medidaTxt(a, it) {
+  const [nom, g] = a.p[it.pi || 0], m = it.m || 1;
+  if (m === 1) return nom;
+  const igual = a.p.find((p) => Math.abs(p[1] - g * m) < 1);
+  if (igual) return igual[0];
+  // "¾ taza" × 2 → "1½ tazas"; si no queda una cifra limpia: "mitad de ¾ taza".
+  const FR = { '¼': 0.25, '½': 0.5, '¾': 0.75 }, TXT = { 0.25: '¼', 0.5: '½', 0.75: '¾', 1: '1', 1.5: '1½', 2: '2', 3: '3', 4: '4', 6: '6' };
+  const mm = /^(\d+)?([¼½¾])?\s+([^(]+?)(\s*\(.*\))?$/.exec(nom);
+  if (mm && (mm[1] || mm[2])) {
+    const q = (Number(mm[1]) || 0) + (FR[mm[2]] || 0), nq = q * m;
+    if (TXT[nq]) return `${TXT[nq]} ${nq > 1 ? mm[3].split(' ').map((w) => (/[aeiouáéó]$/.test(w) ? w + 's' : w + 'es')).join(' ') : mm[3]}`;
+  }
+  return m === 0.5 ? `mitad de ${nom}` : `el doble de ${nom}`;
+}
+const EMOJI = [[/arroz/, '🍚'], [/poroto|lenteja|garbanzo|arveja/, '🥣'], [/pollo|pavo|pechuga|trutro/, '🍗'], [/pescado|merluza|salmon|jurel|atun|congrio|reineta|marisc|chorito|paila/, '🐟'],
+  [/ensalada|lechuga|tomate|repollo|verdura/, '🥗'], [/papa|pure|camote/, '🥔'], [/fideo|tallar|noqui|lasan/, '🍝'], [/panqueque/, '🥞'], [/huevo|tortilla/, '🥚'], [/^pan|hallulla|marraq|tostada|galleta/, '🍞'],
+  [/sopa|cazuela|caldo|crema|carbonada|charquican|guiso/, '🍲'], [/leche|yogur|queso|quesillo/, '🥛'], [/^cafe|^te_/, '☕'], [/vacuno|carne|bistec|cerdo|albondi|hamburg|longaniza|vienesa/, '🥩'],
+  [/palta/, '🥑'], [/bebida|jugo|nectar|agua/, '🥤'], [/manzana|compota/, '🍎'], [/platano/, '🍌'], [/naranja|mandarina|pomelo/, '🍊']];
+const GRUPO_EMOJI = { frutas: '🍎', verduras: '🥗', dulces_bebidas: '🍰', preparaciones: '🍲', pan_cereales: '🍞', lacteos: '🥛', carnes_huevos: '🥩', pescados: '🐟', legumbres: '🥣', tuberculos: '🥔', grasas: '🫒', snacks: '🍪' };
+export function emojiDe(a) { const e = EMOJI.find(([re]) => re.test(a.id)); return e ? e[1] : (GRUPO_EMOJI[a.gr] || '🍽'); }
+// Un solo consejo: si achicar a la mitad el alimento que más sube el azúcar baja el nivel del plato.
+function ideaPlato(items, comio) {
+  const f = FACTOR[comio] === undefined ? 1 : FACTOR[comio], total = totalCG(items, comio), n = nivelComida(total);
+  if (n === 'suave') return null;
+  let mejor = null;
+  items.forEach((it, i) => { const a = it.id && alimentoPorId(it.id); if (!a || (it.m || 1) < 1) return;
+    const cg = cgDe(a, gramosDe(a, it)) * f; if (!mejor || cg > mejor.cg) mejor = { i, a, it, cg }; });
+  if (!mejor) return null;
+  const m2 = (mejor.it.m || 1) / 2, nuevo = nivelComida(total - mejor.cg / 2);
+  if (nuevo === n) return null;
+  return { i: mejor.i, a: mejor.a, m: m2, nivel: nuevo, medida: medidaTxt(mejor.a, { pi: mejor.it.pi, m: m2 }) };
+}
 function detectadosHtml(b, it) {
   if (!catalogoListo() || !String(b.nota || '').trim()) return '';
   const items = b.items || [];
   if (!items.length) return '';
   const filas = items.map((x, n) => {
     const a = x.id && alimentoPorId(x.id);
-    if (!a) return `<p class="det-no">${ico('info')}"${esc(x.t)}": no está en la lista todavía</p>`;
-    return `<div class="det-fila"><p class="tit">${esc(a.n)}</p><div class="opciones envuelve">${a.p.map(([nom], pi) => `<button type="button" class="opcion chica${pi === (x.pi || 0) ? ' sel' : ''}" data-a="elegirPorcion" data-id="${it.id}" data-k="${it.k}" data-n="${n}" data-v="${pi}">${esc(nom)}</button>`).join('')}</div></div>`;
+    if (!a) return `<div class="cap-ing sin"><span class="em">🍽</span><p class="n">${esc(x.t)}<small>Se guarda, sin calcular</small></p></div>`;
+    const m = x.m || 1;
+    return `<div class="cap-ing"><span class="em">${emojiDe(a)}</span><p class="n">${esc(nombreCorto(a))}<small>${esc(medidaTxt(a, x))}</small></p>
+      <div class="mult" role="group" aria-label="Porción de ${esc(a.n)}">${MULT.map(([v, t]) => `<button type="button" class="${v === m ? 'sel' : ''}" aria-pressed="${v === m}" data-a="elegirPorcion" data-id="${it.id}" data-k="${it.k}" data-n="${n}" data-v="${v}">${t}</button>`).join('')}</div></div>`;
   }).join('');
-  const reconocidos = items.some((x) => x.id);
-  return `<div class="detectados">${filas}${reconocidos ? `<div class="det-total">${medidorCG(totalCG(items, b.comio || 'todo'))}</div>` : ''}</div>`;
+  if (!items.some((x) => x.id)) return `<div class="detectados">${filas}</div>`;
+  const comio = b.comio || 'todo', n = nivelComida(totalCG(items, comio)), idea = ideaPlato(items, comio);
+  const listo = b.listo && !idea ? `<div class="idea-plato hecha"><span class="em">✓</span><p>Listo: ${esc(b.listo)}<small>Ahora sube ${NIVEL_TXT[n].toLowerCase()}</small></p></div>` : '';
+  const ideaHtml = idea ? `<button type="button" class="idea-plato" data-a="aplicarIdeaPlato" data-id="${it.id}" data-k="${it.k}" data-n="${idea.i}" data-v="${idea.m}"><span class="em">${emojiDe(idea.a)}</span><p>Menos ${esc(nombreCorto(idea.a).toLowerCase())}<small>${esc(idea.medida)} · baja a ${NIVEL_TXT[idea.nivel]}</small></p><span class="accion">Cambiar</span></button>` : '';
+  return `<div class="detectados">${filas}<div class="veredicto-plato"><span>Sube el azúcar</span><span class="cg-chip ${n}">${NIVEL_TXT[n]}</span></div>${ideaHtml}${listo}</div>`;
 }
-// Resumen del día: una barra que se llena con cada comida y el azúcar medido después del almuerzo.
-function resumenAzucarDia(hoy, comidas) {
-  if (!catalogoListo()) return '';
-  const tramos = comidas.map((it) => { const reg = estado.tomas[it.id], cg = cgRegistro(reg); return cg === null ? null : { it, cg }; }).filter(Boolean);
-  if (!tramos.length) return '';
-  const total = tramos.reduce((s, x) => s + x.cg, 0), MAX = 160, n = nivelDia(total);
-  const barra = tramos.map((x) => `<span class="tramo-cg ${nivelComida(x.cg)}" style="width:${Math.max(3, (x.cg / MAX) * 100).toFixed(1)}%" title="${esc(x.it.nombre)}"><b>${esc(x.it.nombre.slice(0, 3))}</b></span>`).join('');
-  const glu = estado.mediciones.find((m) => m.fecha === hoy && m.tipo === 'azucar' && m.tarea === 'glu-almuerzo');
-  const alm = tramos.find((x) => x.it.k === 'almuerzo');
-  return `<section class="panel azucar-dia"><div class="titulo-fila"><p class="rotulo">Las comidas de hoy y el azúcar</p><span class="cg-chip ${n}"><span class="cg-barras"><i></i><i></i><i></i></span>${NIVEL_TXT[n]}</span></div>
-    <div class="barra-cg">${barra}<span class="marca-cg" style="left:${(80 / MAX * 100).toFixed(1)}%"></span><span class="marca-cg" style="left:${(120 / MAX * 100).toFixed(1)}%"></span></div>
-    <div class="ley-cg"><span>Suave</span><span>Media</span><span>Alta</span></div>
-    ${alm && glu ? `<p class="cg-relacion">${ico('soup')}Almuerzo: <b class="${nivelComida(alm.cg)}">${NIVEL_TXT[nivelComida(alm.cg)].toLowerCase()}</b> ${ico('right')} 2 h después: <b class="v ${clasificar(glu, estado.config.rangos)}">${glu.valor}</b></p>` : ''}
-    <p class="nota">Estimación según lo anotado. Sirve para comparar días, no es una medición.</p></section>`;
-}
-
 const COMIO = { todo: 'Comió todo', parte: 'Comió una parte', nada: 'No comió' };
 const HORA_OK = /^([01]\d|2[0-3]):[0-5]\d$/;
 const PREGUNTA_COMIDA = { desayuno: '¿Qué desayunó hoy?', almuerzo: '¿Qué almorzó hoy?', once: '¿Qué comió en la once?', cena: '¿Qué cenó hoy?' };
@@ -198,7 +225,7 @@ function principal() {
   return `<div class="envoltura">
     ${bloqueCuidadoComidas()}
     <div class="titulo-fila"><p class="h2">Comidas de hoy</p><span class="chip neutro">${mayus(DIAS[estado.ahora.getDay()])}</span></div>
-    ${resumenAzucarDia(hoy, comidas)}
+    ${platoDelDia(hoy, comidas)}
     ${comidas.length ? comidas.map((it) => tarjetaComida(it, ahoraHM, hoy)).join('') : '<p class="vacio-txt">No hay menú anotado para hoy.</p>'}
     <div class="lista-aj">
       ${op('recuperacion/3', 'play', 'La comida trabaja contigo', 'Capítulo 3 · con voz')}
@@ -209,6 +236,7 @@ function principal() {
       ${op('comidas/guia', 'info', 'Guía de comidas y plato', 'Desayuno, almuerzo, once y colaciones')}
       ${esAdmin() ? op('ajustes/menu', 'edit', 'Editar el menú y las porciones', 'Menú de la semana') : ''}
     </div>
+    ${guiaRapida(comidas)}
   </div>`;
 }
 
@@ -284,14 +312,19 @@ acciones.actualizarBorradorComida = (d) => {
   if (habiaConsulta && b && !b.consulta) pintar();
   // Reconoce los alimentos mientras se escribe, sin repintar toda la pantalla (no se pierde el teclado).
   if (b && catalogoListo()) {
-    b.items = calcularItems(b.nota || '', b.items);
+    b.items = calcularItems(b.nota || '', b.items); b.listo = '';
     const caja = porId('det-' + d.k);
     if (caja) caja.innerHTML = detectadosHtml(b, { id: d.id, k: d.k });
   }
 };
 acciones.elegirPorcion = (d) => {
   const b = leerBorrador(d.id, d.k); if (!b || !b.items || !b.items[d.n]) return;
-  b.items[d.n].pi = Number(d.v); pintar();
+  b.items[d.n].m = Number(d.v) || 1; b.listo = ''; pintar();
+};
+acciones.aplicarIdeaPlato = (d) => {
+  const b = leerBorrador(d.id, d.k); if (!b || !b.items || !b.items[d.n]) return;
+  const x = b.items[d.n], a = alimentoPorId(x.id); if (!a) return;
+  x.m = Number(d.v) || 1; b.listo = `${nombreCorto(a).toLowerCase()}, ${medidaTxt(a, x)}`; pintar();
 };
 acciones.consultarAlimentos = (d) => {
   const b = leerBorrador(d.id, d.k); if (!b) return;
@@ -342,7 +375,7 @@ acciones.guardarComidaForm = (d) => {
   if (nota) { reg.nota = nota; reg.otra = true; }
   if (nota && catalogoListo()) {
     const items = calcularItems(nota, b.items);
-    reg.items = items.filter((x) => x.id).map((x) => ({ id: x.id, pi: x.pi || 0, g: alimentoPorId(x.id).p[x.pi || 0][1] }));
+    reg.items = items.filter((x) => x.id).map((x) => ({ id: x.id, pi: x.pi || 0, m: x.m || 1, g: gramosDe(alimentoPorId(x.id), x) }));
     reg.sinCalcular = items.filter((x) => !x.id).map((x) => x.t);
     if (reg.items.length) reg.cg = r1(totalCG(items, b.comio));
   }

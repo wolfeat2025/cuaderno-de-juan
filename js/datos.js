@@ -27,6 +27,8 @@ export const TAREAS = {
   'pre-manana': { tipo: 'presion', nombre: 'Presión de la mañana' },
   'glu-almuerzo': { tipo: 'azucar', momento: 'despues', nombre: 'Azúcar después de almorzar' },
   'pre-noche': { tipo: 'presion', nombre: 'Presión de la noche' },
+  // No es fija: la crea el botón "Medir otra vez" de "¿Por qué marcó esto?" (registro clase 'repetir').
+  'glu-otra': { tipo: 'azucar', momento: 'despues', nombre: 'Azúcar otra vez' },
 };
 const HORA_OK = /^\d\d:\d\d$/;
 const dos = (n) => String(n).padStart(2, '0');
